@@ -6,11 +6,12 @@ mod text;
 
 use crate::page::Renderer;
 use color_eyre::Result;
+use onenote_parser::FileSystem;
 use onenote_parser::contents::MathInlineObject;
 use parser::Parser;
 use render::render_equation;
 
-impl<'a> Renderer<'a> {
+impl<'a, FS: FileSystem> Renderer<'a, FS> {
     pub(crate) fn render_math(&self, segments: Vec<(String, MathInlineObject)>) -> Result<String> {
         let mut parser = Parser::new(segments)?;
         let equation = parser.parse()?;

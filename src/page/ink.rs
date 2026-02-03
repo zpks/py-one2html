@@ -1,9 +1,10 @@
 use crate::page::Renderer;
 use crate::utils::{AttributeSet, StyleSet, px};
 use itertools::Itertools;
+use onenote_parser::FileSystem;
 use onenote_parser::contents::{Ink, InkBoundingBox, InkPoint, InkStroke};
 
-impl<'a> Renderer<'a> {
+impl<'a, FS: FileSystem> Renderer<'a, FS> {
     const SVG_SCALING_FACTOR: f32 = 2540.0 / 96.0;
 
     pub(crate) fn render_ink(

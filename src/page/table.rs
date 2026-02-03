@@ -1,9 +1,10 @@
 use crate::page::Renderer;
 use crate::utils::{AttributeSet, StyleSet, px};
 use color_eyre::Result;
+use onenote_parser::FileSystem;
 use onenote_parser::contents::{OutlineElement, Table, TableCell};
 
-impl<'a> Renderer<'a> {
+impl<'a, FS: FileSystem> Renderer<'a, FS> {
     pub(crate) fn render_table(&mut self, table: &Table) -> Result<String> {
         let mut content = String::new();
         let mut styles = StyleSet::new();

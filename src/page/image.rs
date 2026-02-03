@@ -3,16 +3,20 @@ use crate::utils::sanitize_output_filename;
 use crate::utils::{AttributeSet, StyleSet, px};
 use color_eyre::Result;
 use color_eyre::eyre::WrapErr;
+use onenote_parser::FileSystem;
 use onenote_parser::contents::Image;
-use std::fs;
 
-impl<'a> Renderer<'a> {
+impl<'a, FS: FileSystem> Renderer<'a, FS> {
     pub(crate) fn render_image(&mut self, image: &Image) -> Result<String> {
         let mut content = String::new();
 
         if let Some(data) = image.data() {
             let filename = self.determine_image_filename(image)?;
-            fs::write(self.output.join(filename.clone()), data)
+
+            let target_file = self.output.join(filename.clone());
+
+            self.fs
+                .write_file(target_file.as_path(), data)
                 .wrap_err("Failed to write image")?;
 
             let mut attrs = AttributeSet::new();

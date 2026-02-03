@@ -1,9 +1,9 @@
 use crate::utils::sanitize_output_filename;
 use crate::{page, templates};
 use color_eyre::eyre::Result;
+use onenote_parser::FileSystem;
 use onenote_parser::section::Section;
 use std::collections::HashSet;
-use std::fs;
 use std::path::{Path, PathBuf};
 
 pub(crate) struct Renderer {
@@ -19,11 +19,16 @@ impl Renderer {
         }
     }
 
-    pub fn render(&mut self, section: &Section, output_dir: &Path) -> Result<PathBuf> {
+    pub fn render(
+        &mut self,
+        section: &Section,
+        output_dir: &Path,
+        fs: impl FileSystem,
+    ) -> Result<PathBuf> {
         let section_dir = output_dir.join(sanitize_filename::sanitize(section.display_name()));
 
-        if !section_dir.is_dir() {
-            fs::create_dir(&section_dir)?;
+        if !fs.is_directory(&section_dir)? {
+            fs.make_dir(section_dir.as_path())?;
         }
 
         let mut toc = Vec::new();
@@ -43,10 +48,10 @@ impl Renderer {
 
                 let output_file = section_dir.join(file_name);
 
-                let mut renderer = page::Renderer::new(section_dir.clone(), self);
+                let mut renderer = page::Renderer::new(section_dir.clone(), self, fs);
                 let output = renderer.render_page(page)?;
 
-                fs::write(&output_file, output)?;
+                fs.write_file(output_file.as_path(), output.as_bytes())?;
 
                 toc.push((
                     title,
@@ -62,7 +67,8 @@ impl Renderer {
         let toc_html = templates::section::render(section.display_name(), toc)?;
         let toc_name = sanitize_output_filename(section.display_name())? + ".html";
         let toc_file = output_dir.join(toc_name);
-        fs::write(toc_file, toc_html)?;
+
+        fs.write_file(toc_file.as_path(), toc_html.as_bytes())?;
 
         Ok(section_dir)
     }

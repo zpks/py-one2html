@@ -1,9 +1,10 @@
 use crate::page::Renderer;
 use color_eyre::Result;
 use log::warn;
+use onenote_parser::FileSystem;
 use onenote_parser::contents::Content;
 
-impl<'a> Renderer<'a> {
+impl<'a, FS: FileSystem> Renderer<'a, FS> {
     pub(crate) fn render_content(&mut self, content: &Content) -> Result<String> {
         match content {
             Content::RichText(text) => self.render_rich_text(text),

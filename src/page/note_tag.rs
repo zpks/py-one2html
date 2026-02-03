@@ -1,6 +1,7 @@
 use crate::page::Renderer;
 use crate::utils::StyleSet;
 use log::warn;
+use onenote_parser::FileSystem;
 use onenote_parser::contents::{NoteTag, OutlineElement};
 use onenote_parser::property::common::ColorRef;
 use onenote_parser::property::note_tag::{ActionItemStatus, NoteTagShape};
@@ -45,7 +46,7 @@ enum IconSize {
     Large,
 }
 
-impl<'a> Renderer<'a> {
+impl<'a, FS: FileSystem> Renderer<'a, FS> {
     pub(crate) fn render_with_note_tags(
         &mut self,
         note_tags: &[NoteTag],

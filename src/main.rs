@@ -1,18 +1,23 @@
-use crate::cli::Opt;
-use crate::utils::with_progress;
+#![deny(clippy::disallowed_methods, clippy::disallowed_types)]
+
 use clap::Parser;
 use color_eyre::eyre::Result;
-use color_eyre::eyre::{ContextCompat, eyre};
-use console::style;
-use onenote_parser::Parser as OneNoteParser;
-use std::path::Path;
+use log::LevelFilter;
+use simplelog::{ColorChoice, CombinedLogger, Config, TermLogger, TerminalMode};
+use std::path::PathBuf;
 use std::process::exit;
-mod cli;
-mod notebook;
-mod page;
-mod section;
-mod templates;
-mod utils;
+
+#[derive(Parser, Debug)]
+#[command(name = "one2html")]
+pub(crate) struct Opt {
+    /// Input files (`.one` or `.onetoc2` files)
+    #[arg(short, long, required = true, value_name = "FILE", num_args = 1..)]
+    pub(crate) input: Vec<PathBuf>,
+
+    /// Output directory
+    #[arg(short, long, value_name = "DIR")]
+    pub(crate) output: PathBuf,
+}
 
 #[cfg(feature = "backtrace")]
 fn main() {
@@ -41,9 +46,14 @@ fn main() {
     }
 }
 
+#[allow(clippy::disallowed_methods)]
 fn _main() -> Result<()> {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn"))
-        .try_init()?;
+    CombinedLogger::init(vec![TermLogger::new(
+        LevelFilter::Warn,
+        Config::default(),
+        TerminalMode::Mixed,
+        ColorChoice::Auto,
+    )])?;
 
     let opt: Opt = Opt::parse();
 
@@ -53,50 +63,7 @@ fn _main() -> Result<()> {
     assert!(!output_dir.is_file());
 
     for path in opt.input {
-        convert(&path, &output_dir)?;
-    }
-
-    Ok(())
-}
-
-fn convert(path: &Path, output_dir: &Path) -> Result<()> {
-    let parser = OneNoteParser::new();
-
-    match path.extension().map(|p| p.to_string_lossy()).as_deref() {
-        Some("one") => {
-            let name = path.file_name().unwrap_or_default().to_string_lossy();
-            println!("Processing section {}...", style(&name).bright());
-
-            let section = with_progress("Parsing input file...", || parser.parse_section(path))?;
-
-            section::Renderer::new().render(&section, output_dir)?;
-        }
-        Some("onetoc2") => {
-            let name = path
-                .parent()
-                .unwrap()
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy();
-            println!("Processing notebook {}...", style(&name).bright());
-
-            let notebook = with_progress("[1/2] Parsing input files...", || {
-                parser.parse_notebook(path)
-            })?;
-
-            let notebook_name = path
-                .parent()
-                .wrap_err("Input file has no parent folder")?
-                .file_name()
-                .wrap_err("Parent folder has no name")?
-                .to_string_lossy();
-
-            with_progress("[2/2] Rendering sections...", || {
-                notebook::Renderer::new().render(&notebook, &notebook_name, output_dir)
-            })?;
-        }
-        Some(ext) => return Err(eyre!("Invalid file extension: {}", ext)),
-        _ => return Err(eyre!("Couldn't determine file type")),
+        one2html::convert(&path, &output_dir, onenote_parser::fs::NativeFs {})?;
     }
 
     Ok(())

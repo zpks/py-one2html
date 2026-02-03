@@ -2,12 +2,12 @@ use crate::templates::notebook::Toc;
 use crate::utils::sanitize_output_filename;
 use crate::{section, templates};
 use color_eyre::eyre::{Result, eyre};
+use onenote_parser::FileSystem;
 use onenote_parser::notebook::Notebook;
 use onenote_parser::property::common::Color;
 use onenote_parser::section::{Section, SectionEntry};
 use palette::rgb::Rgb;
 use palette::{Alpha, Darken, FromColor, Hsl, Saturate, Srgb};
-use std::fs;
 use std::path::Path;
 
 pub(crate) type RgbColor = Alpha<Rgb<palette::encoding::Srgb, u8>, f32>;
@@ -19,15 +19,21 @@ impl Renderer {
         Renderer
     }
 
-    pub fn render(&mut self, notebook: &Notebook, name: &str, output_dir: &Path) -> Result<()> {
-        if !output_dir.is_dir() {
-            fs::create_dir(output_dir)?;
+    pub fn render(
+        &mut self,
+        notebook: &Notebook,
+        name: &str,
+        output_dir: &Path,
+        fs: impl FileSystem,
+    ) -> Result<()> {
+        if !fs.is_directory(output_dir)? {
+            fs.make_dir(output_dir)?;
         }
 
         let notebook_dir = output_dir.join(sanitize_filename::sanitize(name));
 
-        if !notebook_dir.is_dir() {
-            fs::create_dir(&notebook_dir)?;
+        if !fs.is_directory(&notebook_dir)? {
+            fs.make_dir(notebook_dir.as_path())?;
         }
 
         let mut toc = Vec::new();
@@ -39,29 +45,28 @@ impl Renderer {
                         section,
                         &notebook_dir,
                         output_dir,
+                        fs,
                     )?));
                 }
                 SectionEntry::SectionGroup(group) => {
                     let dir_name = sanitize_filename::sanitize(group.display_name());
                     let group_dir = notebook_dir.join(dir_name);
-                    if !group_dir.is_dir() {
-                        fs::create_dir(&group_dir)?;
+
+                    if !fs.is_directory(&group_dir)? {
+                        fs.make_dir(group_dir.as_path())?;
                     }
 
                     let mut entries = Vec::new();
 
                     for entry in group.entries() {
                         if let SectionEntry::Section(section) = entry {
-                            entries.push(self.render_section(section, &group_dir, output_dir)?);
+                            entries.push(self.render_section(section, &group_dir, output_dir, fs)?);
                         } else {
                             return Err(eyre!("Nested section groups are not yet supported"));
                         }
                     }
 
-                    toc.push(templates::notebook::Toc::SectionGroup(
-                        group.display_name().to_string(),
-                        entries,
-                    ))
+                    toc.push(Toc::SectionGroup(group.display_name().to_string(), entries))
                 }
             }
         }
@@ -69,7 +74,8 @@ impl Renderer {
         let toc_html = templates::notebook::render(name, &toc)?;
         let toc_name = sanitize_output_filename(name)? + ".html";
         let toc_file = output_dir.join(toc_name);
-        fs::write(toc_file, toc_html)?;
+
+        fs.write_file(toc_file.as_path(), toc_html.as_bytes())?;
 
         Ok(())
     }
@@ -79,9 +85,10 @@ impl Renderer {
         section: &Section,
         notebook_dir: &Path,
         base_dir: &Path,
+        fs: impl FileSystem,
     ) -> Result<templates::notebook::Section> {
         let mut renderer = section::Renderer::new();
-        let path = renderer.render(section, notebook_dir)?;
+        let path = renderer.render(section, notebook_dir, fs)?;
 
         Ok(templates::notebook::Section {
             name: section.display_name().to_string(),

@@ -6,13 +6,14 @@ use color_eyre::eyre::WrapErr;
 use itertools::Itertools;
 use log::warn;
 use once_cell::sync::Lazy;
+use onenote_parser::FileSystem;
 use onenote_parser::contents::{EmbeddedObject, MathInlineObject, RichText};
 use onenote_parser::property::common::ColorRef;
 use onenote_parser::property::rich_text::{ParagraphAlignment, ParagraphStyling};
 use regex::{Captures, Regex};
 use std::iter::repeat;
 
-impl<'a> Renderer<'a> {
+impl<'a, FS: FileSystem> Renderer<'a, FS> {
     pub(crate) fn render_rich_text(&mut self, text: &RichText) -> Result<String> {
         let mut content = String::new();
         let mut attrs = AttributeSet::new();

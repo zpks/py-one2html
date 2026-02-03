@@ -2,15 +2,19 @@ use crate::page::Renderer;
 use crate::utils::sanitize_output_filename;
 use color_eyre::Result;
 use color_eyre::eyre::{ContextCompat, WrapErr};
+use onenote_parser::FileSystem;
 use onenote_parser::contents::EmbeddedFile;
 use onenote_parser::property::embedded_file::FileType;
-use std::fs;
 use std::path::PathBuf;
 
-impl<'a> Renderer<'a> {
+impl<'a, FS: FileSystem> Renderer<'a, FS> {
     pub(crate) fn render_embedded_file(&mut self, file: &EmbeddedFile) -> Result<String> {
         let filename = self.determine_filename(file.filename())?;
-        fs::write(self.output.join(filename.clone()), file.data())
+
+        let target_file = self.output.join(filename.clone());
+
+        self.fs
+            .write_file(target_file.as_path(), file.data())
             .wrap_err("Failed to write embedded file")?;
 
         let file_type = Self::guess_type(file);

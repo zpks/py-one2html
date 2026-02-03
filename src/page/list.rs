@@ -2,12 +2,13 @@ use crate::page::Renderer;
 use crate::utils::{AttributeSet, StyleSet, px};
 use color_eyre::Result;
 use log::warn;
+use onenote_parser::FileSystem;
 use onenote_parser::contents::{List, OutlineElement};
 use onenote_parser::property::common::ColorRef;
 
 const FORMAT_NUMBERED_LIST: char = '\u{fffd}';
 
-impl<'a> Renderer<'a> {
+impl<'a, FS: FileSystem> Renderer<'a, FS> {
     pub(crate) fn render_list<'b>(
         &mut self,
         elements: impl Iterator<Item = (&'b OutlineElement, u8, u8)>,

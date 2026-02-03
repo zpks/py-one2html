@@ -4,8 +4,10 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
 use std::path::Path;
+#[cfg(feature = "native-fs")]
 use std::time::Duration;
 
+#[cfg(feature = "native-fs")]
 pub(crate) fn with_progress<T, F: FnMut() -> T>(msg: &'static str, mut f: F) -> T {
     let bar = indicatif::ProgressBar::new_spinner();
     bar.set_message(msg);
@@ -18,6 +20,11 @@ pub(crate) fn with_progress<T, F: FnMut() -> T>(msg: &'static str, mut f: F) -> 
     print!("\r");
 
     ret
+}
+
+#[cfg(not(feature = "native-fs"))]
+pub(crate) fn with_progress<T, F: FnMut() -> T>(_msg: &'static str, mut f: F) -> T {
+    f()
 }
 
 pub(crate) fn px(inches: f32) -> String {

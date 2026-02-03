@@ -1,9 +1,10 @@
 use crate::page::Renderer;
 use crate::utils::{AttributeSet, StyleSet, px};
 use color_eyre::Result;
+use onenote_parser::FileSystem;
 use onenote_parser::contents::{Outline, OutlineElement, OutlineItem};
 
-impl<'a> Renderer<'a> {
+impl<'a, FS: FileSystem> Renderer<'a, FS> {
     pub(crate) fn render_outline(&mut self, outline: &Outline) -> Result<String> {
         let mut attrs = AttributeSet::new();
         let mut styles = StyleSet::new();
