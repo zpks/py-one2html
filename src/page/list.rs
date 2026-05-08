@@ -26,6 +26,10 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
 
                 contents.push_str(&list_start);
                 in_list = true;
+            } else if !in_list && self.is_tag_list(element) {
+                contents.push_str("<ul class=\"tagged-list\">");
+                list_end = Some("</ul>".into());
+                in_list = true;
             }
 
             if in_list && !self.is_list(element) {
@@ -178,6 +182,10 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
             .first()
             .map(|c| *c == FORMAT_NUMBERED_LIST)
             .unwrap_or_default()
+    }
+
+    fn is_tag_list(&self, element: &OutlineElement) -> bool {
+        self.has_note_tag(element)
     }
 
     pub(crate) fn is_list(&self, element: &OutlineElement) -> bool {
