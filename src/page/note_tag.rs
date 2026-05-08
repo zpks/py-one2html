@@ -1,5 +1,5 @@
 use crate::page::Renderer;
-use crate::utils::StyleSet;
+use crate::utils::{AttributeSet, StyleSet};
 use log::warn;
 use onenote_parser::FileSystem;
 use onenote_parser::contents::{NoteTag, OutlineElement};
@@ -46,6 +46,35 @@ enum IconSize {
     Large,
 }
 
+struct NoteTagIcon {
+    html: Cow<'static, str>,
+    size: IconSize,
+    styles: StyleSet,
+    is_checkbox: bool,
+}
+
+impl From<(Cow<'static, str>, IconSize)> for NoteTagIcon {
+    fn from((html, size): (Cow<'static, str>, IconSize)) -> Self {
+        Self {
+            html,
+            size,
+            styles: StyleSet::new(),
+            is_checkbox: false,
+        }
+    }
+}
+
+impl From<(Cow<'static, str>, IconSize, StyleSet)> for NoteTagIcon {
+    fn from((html, size, styles): (Cow<'static, str>, IconSize, StyleSet)) -> Self {
+        Self {
+            html,
+            size,
+            styles,
+            is_checkbox: false,
+        }
+    }
+}
+
 impl<'a, FS: FileSystem> Renderer<'a, FS> {
     pub(crate) fn render_with_note_tags(
         &mut self,
@@ -83,28 +112,66 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
                 }
 
                 if def.shape() != NoteTagShape::NoIcon {
-                    let (icon, icon_style) =
-                        self.note_tag_icon(def.shape(), note_tag.item_status());
-                    let mut icon_classes = vec!["note-tag-icon".to_string()];
+                    let icon = self.note_tag_icon(def.shape(), note_tag.item_status());
+                    let icon_classes = self.build_note_tag_class_names(&icon);
+                    let attrs =
+                        self.get_note_tag_attrs(&icon, note_tag.item_status(), &icon_classes);
 
-                    if icon_style.len() > 0 {
-                        let class = self.gen_class("icon");
-                        icon_classes.push(class.to_string());
-
-                        self.global_styles
-                            .insert(format!(".{} > svg", class), icon_style);
-                    }
-
-                    markup.push_str(&format!(
-                        "<span class=\"{}\">{}</span>",
-                        icon_classes.join(" "),
-                        icon
-                    ));
+                    markup.push_str(&format!("<span {}>{}</span>", attrs, icon.html,));
                 }
             }
         }
 
         Some((markup, styles))
+    }
+
+    fn build_note_tag_class_names(&mut self, icon: &NoteTagIcon) -> Vec<String> {
+        let mut icon_classes = vec!["note-tag-icon".to_string()];
+
+        if icon.styles.len() > 0 {
+            let class = self.gen_class("icon");
+            icon_classes.push(class.to_string());
+
+            self.global_styles
+                // Select both `svg` and `img`: `svg`s may be replaced with `img` later in the import process:
+                .insert(
+                    format!(".{} > svg, .{} > img", class, class),
+                    icon.styles.clone(),
+                );
+        }
+
+        if icon.is_checkbox {
+            icon_classes.push("-checkbox".into());
+        }
+
+        if icon.size == IconSize::Large {
+            icon_classes.push("-large".into());
+        } else if icon.size == IconSize::Normal {
+            icon_classes.push("-normal".into());
+        }
+
+        icon_classes
+    }
+
+    fn get_note_tag_attrs(
+        &mut self,
+        icon: &NoteTagIcon,
+        status: ActionItemStatus,
+        class_names: &[String],
+    ) -> AttributeSet {
+        let mut attrs = AttributeSet::new();
+        attrs.set("class", class_names.join(" "));
+
+        if icon.is_checkbox {
+            attrs.set("role", "checkbox".into());
+            attrs.set(
+                "aria-checked",
+                if status.completed() { "true" } else { "false" }.into(),
+            );
+            attrs.set("aria-disabled", "true".into());
+        }
+
+        attrs
     }
 
     pub(crate) fn has_note_tag(&self, element: &OutlineElement) -> bool {
@@ -115,344 +182,197 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
             .any(|text| !text.note_tags().is_empty())
     }
 
-    fn note_tag_icon(
-        &self,
-        shape: NoteTagShape,
-        status: ActionItemStatus,
-    ) -> (Cow<'static, str>, StyleSet) {
-        let mut style = StyleSet::new();
-
+    fn note_tag_icon(&self, shape: NoteTagShape, status: ActionItemStatus) -> NoteTagIcon {
         match shape {
-            NoteTagShape::NoIcon => (Cow::from(""), style),
-            NoteTagShape::GreenCheckBox => self.icon_checkbox(status, style, COLOR_GREEN),
-            NoteTagShape::YellowCheckBox => self.icon_checkbox(status, style, COLOR_YELLOW),
-            NoteTagShape::BlueCheckBox => self.icon_checkbox(status, style, COLOR_BLUE),
-            NoteTagShape::GreenStarCheckBox => {
-                self.icon_checkbox_with_star(status, style, COLOR_GREEN)
-            }
-            NoteTagShape::YellowStarCheckBox => {
-                self.icon_checkbox_with_star(status, style, COLOR_YELLOW)
-            }
-            NoteTagShape::BlueStarCheckBox => {
-                self.icon_checkbox_with_star(status, style, COLOR_BLUE)
-            }
+            NoteTagShape::GreenCheckBox => self.icon_checkbox(status, COLOR_GREEN),
+            NoteTagShape::YellowCheckBox => self.icon_checkbox(status, COLOR_YELLOW),
+            NoteTagShape::BlueCheckBox => self.icon_checkbox(status, COLOR_BLUE),
+            NoteTagShape::GreenStarCheckBox => self.icon_checkbox_with_star(status, COLOR_GREEN),
+            NoteTagShape::YellowStarCheckBox => self.icon_checkbox_with_star(status, COLOR_YELLOW),
+            NoteTagShape::BlueStarCheckBox => self.icon_checkbox_with_star(status, COLOR_BLUE),
             NoteTagShape::GreenExclamationCheckBox => {
-                self.icon_checkbox_with_exclamation(status, style, COLOR_GREEN)
+                self.icon_checkbox_with_exclamation(status, COLOR_GREEN)
             }
             NoteTagShape::YellowExclamationCheckBox => {
-                self.icon_checkbox_with_exclamation(status, style, COLOR_YELLOW)
+                self.icon_checkbox_with_exclamation(status, COLOR_YELLOW)
             }
             NoteTagShape::BlueExclamationCheckBox => {
-                self.icon_checkbox_with_exclamation(status, style, COLOR_BLUE)
+                self.icon_checkbox_with_exclamation(status, COLOR_BLUE)
             }
             NoteTagShape::GreenRightArrowCheckBox => {
-                self.icon_checkbox_with_right_arrow(status, style, COLOR_GREEN)
+                self.icon_checkbox_with_right_arrow(status, COLOR_GREEN)
             }
             NoteTagShape::YellowRightArrowCheckBox => {
-                self.icon_checkbox_with_right_arrow(status, style, COLOR_YELLOW)
+                self.icon_checkbox_with_right_arrow(status, COLOR_YELLOW)
             }
             NoteTagShape::BlueRightArrowCheckBox => {
-                self.icon_checkbox_with_right_arrow(status, style, COLOR_BLUE)
+                self.icon_checkbox_with_right_arrow(status, COLOR_BLUE)
             }
             NoteTagShape::YellowStar => {
+                let mut style = StyleSet::new();
                 style.set("fill", COLOR_YELLOW.to_string());
 
-                (
-                    Cow::from(ICON_STAR),
-                    self.icon_style(IconSize::Normal, style),
-                )
+                (Cow::from(ICON_STAR), IconSize::Normal, style).into()
             }
-            NoteTagShape::BlueFollowUpFlag => self.icon_fallback(shape, style),
-            NoteTagShape::QuestionMark => (
-                Cow::from(ICON_QUESTION_MARK),
-                self.icon_style(IconSize::Normal, style),
-            ),
-            NoteTagShape::BlueRightArrow => self.icon_fallback(shape, style),
-            NoteTagShape::HighPriority => (
-                Cow::from(ICON_ERROR),
-                self.icon_style(IconSize::Normal, style),
-            ),
-            NoteTagShape::ContactInformation => (
-                Cow::from(ICON_PHONE),
-                self.icon_style(IconSize::Normal, style),
-            ),
-            NoteTagShape::Meeting => self.icon_fallback(shape, style),
-            NoteTagShape::TimeSensitive => self.icon_fallback(shape, style),
-            NoteTagShape::LightBulb => (
-                Cow::from(ICON_LIGHT_BULB),
-                self.icon_style(IconSize::Normal, style),
-            ),
-            NoteTagShape::Pushpin => self.icon_fallback(shape, style),
-            NoteTagShape::Home => (
-                Cow::from(ICON_HOME),
-                self.icon_style(IconSize::Normal, style),
-            ),
-            NoteTagShape::CommentBubble => (
-                Cow::from(ICON_BUBBLE),
-                self.icon_style(IconSize::Normal, style),
-            ),
-            NoteTagShape::SmilingFace => self.icon_fallback(shape, style),
-            NoteTagShape::AwardRibbon => (
-                Cow::from(ICON_AWARD),
-                self.icon_style(IconSize::Normal, style),
-            ),
-            NoteTagShape::YellowKey => self.icon_fallback(shape, style),
-            NoteTagShape::BlueCheckBox1 => self.icon_checkbox_with_1(status, style, COLOR_BLUE),
-            NoteTagShape::BlueCircle1 => self.icon_fallback(shape, style),
-            NoteTagShape::BlueCheckBox2 => self.icon_checkbox_with_2(status, style, COLOR_BLUE),
-            NoteTagShape::BlueCircle2 => self.icon_fallback(shape, style),
-            NoteTagShape::BlueCheckBox3 => self.icon_checkbox_with_3(status, style, COLOR_BLUE),
-            NoteTagShape::BlueCircle3 => self.icon_fallback(shape, style),
-            NoteTagShape::BlueEightPointStar => self.icon_fallback(shape, style),
-            NoteTagShape::BlueCheckMark => self.icon_checkmark(style, COLOR_BLUE),
-            NoteTagShape::BlueCircle => self.icon_circle(style, COLOR_BLUE),
-            NoteTagShape::BlueDownArrow => self.icon_fallback(shape, style),
-            NoteTagShape::BlueLeftArrow => self.icon_fallback(shape, style),
-            NoteTagShape::BlueSolidTarget => self.icon_fallback(shape, style),
-            NoteTagShape::BlueStar => self.icon_fallback(shape, style),
-            NoteTagShape::BlueSun => self.icon_fallback(shape, style),
-            NoteTagShape::BlueTarget => self.icon_fallback(shape, style),
-            NoteTagShape::BlueTriangle => self.icon_fallback(shape, style),
-            NoteTagShape::BlueUmbrella => self.icon_fallback(shape, style),
-            NoteTagShape::BlueUpArrow => self.icon_fallback(shape, style),
-            NoteTagShape::BlueXWithDots => self.icon_fallback(shape, style),
-            NoteTagShape::BlueX => self.icon_fallback(shape, style),
-            NoteTagShape::GreenCheckBox1 => self.icon_checkbox_with_1(status, style, COLOR_GREEN),
-            NoteTagShape::GreenCircle1 => self.icon_fallback(shape, style),
-            NoteTagShape::GreenCheckBox2 => self.icon_checkbox_with_2(status, style, COLOR_GREEN),
-            NoteTagShape::GreenCircle2 => self.icon_fallback(shape, style),
-            NoteTagShape::GreenCheckBox3 => self.icon_checkbox_with_3(status, style, COLOR_GREEN),
-            NoteTagShape::GreenCircle3 => self.icon_fallback(shape, style),
-            NoteTagShape::GreenEightPointStar => self.icon_fallback(shape, style),
-            NoteTagShape::GreenCheckMark => self.icon_checkmark(style, COLOR_GREEN),
-            NoteTagShape::GreenCircle => self.icon_circle(style, COLOR_GREEN),
-            NoteTagShape::GreenDownArrow => self.icon_fallback(shape, style),
-            NoteTagShape::GreenLeftArrow => self.icon_fallback(shape, style),
-            NoteTagShape::GreenRightArrow => self.icon_fallback(shape, style),
-            NoteTagShape::GreenSolidArrow => self.icon_fallback(shape, style),
-            NoteTagShape::GreenStar => self.icon_fallback(shape, style),
-            NoteTagShape::GreenSun => self.icon_fallback(shape, style),
-            NoteTagShape::GreenTarget => self.icon_fallback(shape, style),
-            NoteTagShape::GreenTriangle => self.icon_fallback(shape, style),
-            NoteTagShape::GreenUmbrella => self.icon_fallback(shape, style),
-            NoteTagShape::GreenUpArrow => self.icon_fallback(shape, style),
-            NoteTagShape::GreenXWithDots => self.icon_fallback(shape, style),
-            NoteTagShape::GreenX => self.icon_fallback(shape, style),
-            NoteTagShape::YellowCheckBox1 => self.icon_checkbox_with_1(status, style, COLOR_YELLOW),
-            NoteTagShape::YellowCircle1 => self.icon_fallback(shape, style),
-            NoteTagShape::YellowCheckBox2 => self.icon_checkbox_with_2(status, style, COLOR_YELLOW),
-            NoteTagShape::YellowCircle2 => self.icon_fallback(shape, style),
-            NoteTagShape::YellowCheckBox3 => self.icon_checkbox_with_3(status, style, COLOR_YELLOW),
-            NoteTagShape::YellowCircle3 => self.icon_fallback(shape, style),
-            NoteTagShape::YellowEightPointStar => self.icon_fallback(shape, style),
-            NoteTagShape::YellowCheckMark => self.icon_checkmark(style, COLOR_YELLOW),
-            NoteTagShape::YellowCircle => self.icon_circle(style, COLOR_YELLOW),
-            NoteTagShape::YellowDownArrow => self.icon_fallback(shape, style),
-            NoteTagShape::YellowLeftArrow => self.icon_fallback(shape, style),
-            NoteTagShape::YellowRightArrow => self.icon_fallback(shape, style),
-            NoteTagShape::YellowSolidTarget => self.icon_fallback(shape, style),
-            NoteTagShape::YellowSun => self.icon_fallback(shape, style),
-            NoteTagShape::YellowTarget => self.icon_fallback(shape, style),
-            NoteTagShape::YellowTriangle => self.icon_fallback(shape, style),
-            NoteTagShape::YellowUmbrella => self.icon_fallback(shape, style),
-            NoteTagShape::YellowUpArrow => self.icon_fallback(shape, style),
-            NoteTagShape::YellowXWithDots => self.icon_fallback(shape, style),
-            NoteTagShape::YellowX => self.icon_fallback(shape, style),
-            NoteTagShape::FollowUpTodayFlag => self.icon_fallback(shape, style),
-            NoteTagShape::FollowUpTomorrowFlag => self.icon_fallback(shape, style),
-            NoteTagShape::FollowUpThisWeekFlag => self.icon_fallback(shape, style),
-            NoteTagShape::FollowUpNextWeekFlag => self.icon_fallback(shape, style),
-            NoteTagShape::NoFollowUpDateFlag => self.icon_fallback(shape, style),
-            NoteTagShape::BluePersonCheckBox => {
-                self.icon_checkbox_with_person(status, style, COLOR_BLUE)
-            }
+
+            NoteTagShape::QuestionMark => (Cow::from(ICON_QUESTION_MARK), IconSize::Normal).into(),
+
+            NoteTagShape::HighPriority => (Cow::from(ICON_ERROR), IconSize::Normal).into(),
+            NoteTagShape::ContactInformation => (Cow::from(ICON_PHONE), IconSize::Normal).into(),
+
+            NoteTagShape::LightBulb => (Cow::from(ICON_LIGHT_BULB), IconSize::Normal).into(),
+
+            NoteTagShape::Home => (Cow::from(ICON_HOME), IconSize::Normal).into(),
+            NoteTagShape::CommentBubble => (Cow::from(ICON_BUBBLE), IconSize::Normal).into(),
+
+            NoteTagShape::AwardRibbon => (Cow::from(ICON_AWARD), IconSize::Normal).into(),
+
+            NoteTagShape::BlueCheckBox1 => self.icon_checkbox_with_1(status, COLOR_BLUE),
+
+            NoteTagShape::BlueCheckBox2 => self.icon_checkbox_with_2(status, COLOR_BLUE),
+
+            NoteTagShape::BlueCheckBox3 => self.icon_checkbox_with_3(status, COLOR_BLUE),
+
+            NoteTagShape::BlueCheckMark => self.icon_checkmark(COLOR_BLUE),
+            NoteTagShape::BlueCircle => self.icon_circle(COLOR_BLUE),
+
+            NoteTagShape::GreenCheckBox1 => self.icon_checkbox_with_1(status, COLOR_GREEN),
+
+            NoteTagShape::GreenCheckBox2 => self.icon_checkbox_with_2(status, COLOR_GREEN),
+
+            NoteTagShape::GreenCheckBox3 => self.icon_checkbox_with_3(status, COLOR_GREEN),
+
+            NoteTagShape::GreenCheckMark => self.icon_checkmark(COLOR_GREEN),
+            NoteTagShape::GreenCircle => self.icon_circle(COLOR_GREEN),
+
+            NoteTagShape::YellowCheckBox1 => self.icon_checkbox_with_1(status, COLOR_YELLOW),
+
+            NoteTagShape::YellowCheckBox2 => self.icon_checkbox_with_2(status, COLOR_YELLOW),
+
+            NoteTagShape::YellowCheckBox3 => self.icon_checkbox_with_3(status, COLOR_YELLOW),
+
+            NoteTagShape::YellowCheckMark => self.icon_checkmark(COLOR_YELLOW),
+            NoteTagShape::YellowCircle => self.icon_circle(COLOR_YELLOW),
+
+            NoteTagShape::BluePersonCheckBox => self.icon_checkbox_with_person(status, COLOR_BLUE),
             NoteTagShape::YellowPersonCheckBox => {
-                self.icon_checkbox_with_person(status, style, COLOR_YELLOW)
+                self.icon_checkbox_with_person(status, COLOR_YELLOW)
             }
             NoteTagShape::GreenPersonCheckBox => {
-                self.icon_checkbox_with_person(status, style, COLOR_GREEN)
+                self.icon_checkbox_with_person(status, COLOR_GREEN)
             }
-            NoteTagShape::BlueFlagCheckBox => {
-                self.icon_checkbox_with_flag(status, style, COLOR_BLUE)
-            }
-            NoteTagShape::RedFlagCheckBox => self.icon_checkbox_with_flag(status, style, COLOR_RED),
-            NoteTagShape::GreenFlagCheckBox => {
-                self.icon_checkbox_with_flag(status, style, COLOR_GREEN)
-            }
-            NoteTagShape::RedSquare => self.icon_square(style, COLOR_RED),
-            NoteTagShape::YellowSquare => self.icon_square(style, COLOR_YELLOW),
-            NoteTagShape::BlueSquare => self.icon_square(style, COLOR_BLUE),
-            NoteTagShape::GreenSquare => self.icon_square(style, COLOR_GREEN),
-            NoteTagShape::OrangeSquare => self.icon_square(style, COLOR_ORANGE),
-            NoteTagShape::PinkSquare => self.icon_square(style, COLOR_PINK),
-            NoteTagShape::EMailMessage => (
-                Cow::from(ICON_EMAIL),
-                self.icon_style(IconSize::Normal, style),
-            ),
-            NoteTagShape::ClosedEnvelope => self.icon_fallback(shape, style),
-            NoteTagShape::OpenEnvelope => self.icon_fallback(shape, style),
-            NoteTagShape::MobilePhone => self.icon_fallback(shape, style),
-            NoteTagShape::TelephoneWithClock => self.icon_fallback(shape, style),
-            NoteTagShape::QuestionBalloon => self.icon_fallback(shape, style),
-            NoteTagShape::PaperClip => self.icon_fallback(shape, style),
-            NoteTagShape::FrowningFace => self.icon_fallback(shape, style),
-            NoteTagShape::InstantMessagingContactPerson => self.icon_fallback(shape, style),
-            NoteTagShape::PersonWithExclamationMark => self.icon_fallback(shape, style),
-            NoteTagShape::TwoPeople => self.icon_fallback(shape, style),
-            NoteTagShape::ReminderBell => self.icon_fallback(shape, style),
-            NoteTagShape::Contact => (
-                Cow::from(ICON_CONTACT),
-                self.icon_style(IconSize::Normal, style),
-            ),
-            NoteTagShape::RoseOnAStem => self.icon_fallback(shape, style),
-            NoteTagShape::CalendarDateWithClock => self.icon_fallback(shape, style),
-            NoteTagShape::MusicalNote => (
-                Cow::from(ICON_MUSIC),
-                self.icon_style(IconSize::Normal, style),
-            ),
-            NoteTagShape::MovieClip => (
-                Cow::from(ICON_FILM),
-                self.icon_style(IconSize::Normal, style),
-            ),
-            NoteTagShape::QuotationMark => self.icon_fallback(shape, style),
-            NoteTagShape::Globe => self.icon_fallback(shape, style),
-            NoteTagShape::HyperlinkGlobe => (
-                Cow::from(ICON_LINK),
-                self.icon_style(IconSize::Normal, style),
-            ),
-            NoteTagShape::Laptop => self.icon_fallback(shape, style),
-            NoteTagShape::Plane => self.icon_fallback(shape, style),
-            NoteTagShape::Car => self.icon_fallback(shape, style),
-            NoteTagShape::Binoculars => self.icon_fallback(shape, style),
-            NoteTagShape::PresentationSlide => self.icon_fallback(shape, style),
-            NoteTagShape::Padlock => (
-                Cow::from(ICON_LOCK),
-                self.icon_style(IconSize::Normal, style),
-            ),
-            NoteTagShape::OpenBook => (
-                Cow::from(ICON_BOOK),
-                self.icon_style(IconSize::Normal, style),
-            ),
-            NoteTagShape::NotebookWithClock => self.icon_fallback(shape, style),
-            NoteTagShape::BlankPaperWithLines => (
-                Cow::from(ICON_PAPER),
-                self.icon_style(IconSize::Normal, style),
-            ),
-            NoteTagShape::Research => self.icon_fallback(shape, style),
-            NoteTagShape::Pen => (
-                Cow::from(ICON_PEN),
-                self.icon_style(IconSize::Normal, style),
-            ),
-            NoteTagShape::DollarSign => self.icon_fallback(shape, style),
-            NoteTagShape::CoinsWithAWindowBackdrop => self.icon_fallback(shape, style),
-            NoteTagShape::ScheduledTask => self.icon_fallback(shape, style),
-            NoteTagShape::LightningBolt => self.icon_fallback(shape, style),
-            NoteTagShape::Cloud => self.icon_fallback(shape, style),
-            NoteTagShape::Heart => self.icon_fallback(shape, style),
-            NoteTagShape::Sunflower => self.icon_fallback(shape, style),
+            NoteTagShape::BlueFlagCheckBox => self.icon_checkbox_with_flag(status, COLOR_BLUE),
+            NoteTagShape::RedFlagCheckBox => self.icon_checkbox_with_flag(status, COLOR_RED),
+            NoteTagShape::GreenFlagCheckBox => self.icon_checkbox_with_flag(status, COLOR_GREEN),
+            NoteTagShape::RedSquare => self.icon_square(COLOR_RED),
+            NoteTagShape::YellowSquare => self.icon_square(COLOR_YELLOW),
+            NoteTagShape::BlueSquare => self.icon_square(COLOR_BLUE),
+            NoteTagShape::GreenSquare => self.icon_square(COLOR_GREEN),
+            NoteTagShape::OrangeSquare => self.icon_square(COLOR_ORANGE),
+            NoteTagShape::PinkSquare => self.icon_square(COLOR_PINK),
+            NoteTagShape::EMailMessage => (Cow::from(ICON_EMAIL), IconSize::Normal).into(),
+
+            NoteTagShape::Contact => (Cow::from(ICON_CONTACT), IconSize::Normal).into(),
+
+            NoteTagShape::MusicalNote => (Cow::from(ICON_MUSIC), IconSize::Normal).into(),
+            NoteTagShape::MovieClip => (Cow::from(ICON_FILM), IconSize::Normal).into(),
+
+            NoteTagShape::HyperlinkGlobe => (Cow::from(ICON_LINK), IconSize::Normal).into(),
+
+            NoteTagShape::Padlock => (Cow::from(ICON_LOCK), IconSize::Normal).into(),
+            NoteTagShape::OpenBook => (Cow::from(ICON_BOOK), IconSize::Normal).into(),
+
+            NoteTagShape::BlankPaperWithLines => (Cow::from(ICON_PAPER), IconSize::Normal).into(),
+
+            NoteTagShape::Pen => (Cow::from(ICON_PEN), IconSize::Normal).into(),
+
+            shape => self.icon_fallback(shape),
         }
     }
 
-    fn icon_checkbox(
-        &self,
-        status: ActionItemStatus,
-        mut style: StyleSet,
-        color: &'static str,
-    ) -> (Cow<'static, str>, StyleSet) {
-        style.set("fill", color.to_string());
+    fn icon_fallback(&self, shape: NoteTagShape) -> NoteTagIcon {
+        warn!("Unsupported icon type: {:?}", shape);
 
-        if status.completed() {
-            (
-                Cow::from(ICON_CHECKBOX_COMPLETE),
-                self.icon_style(IconSize::Large, style),
-            )
+        (Cow::from(ICON_QUESTION_MARK), IconSize::Normal).into()
+    }
+
+    fn icon_checkbox(&self, status: ActionItemStatus, color: &'static str) -> NoteTagIcon {
+        let mut styles = StyleSet::new();
+        styles.set("fill", color.to_string());
+
+        let html = if status.completed() {
+            Cow::from(ICON_CHECKBOX_COMPLETE)
         } else {
-            (
-                Cow::from(ICON_CHECKBOX_EMPTY),
-                self.icon_style(IconSize::Large, style),
-            )
+            Cow::from(ICON_CHECKBOX_EMPTY)
+        };
+
+        NoteTagIcon {
+            html,
+            size: IconSize::Large,
+            styles,
+            is_checkbox: true,
         }
     }
 
     fn icon_checkbox_with_person(
         &self,
         status: ActionItemStatus,
-        style: StyleSet,
         color: &'static str,
-    ) -> (Cow<'static, str>, StyleSet) {
-        self.icon_checkbox_with(status, style, color, ICON_PERSON)
+    ) -> NoteTagIcon {
+        self.icon_checkbox_with(status, color, ICON_PERSON)
     }
 
     fn icon_checkbox_with_right_arrow(
         &self,
         status: ActionItemStatus,
-        style: StyleSet,
         color: &'static str,
-    ) -> (Cow<'static, str>, StyleSet) {
-        self.icon_checkbox_with(status, style, color, ICON_ARROW_RIGHT)
+    ) -> NoteTagIcon {
+        self.icon_checkbox_with(status, color, ICON_ARROW_RIGHT)
     }
 
     fn icon_checkbox_with_star(
         &self,
         status: ActionItemStatus,
-        style: StyleSet,
         color: &'static str,
-    ) -> (Cow<'static, str>, StyleSet) {
-        self.icon_checkbox_with(status, style, color, ICON_STAR)
+    ) -> NoteTagIcon {
+        self.icon_checkbox_with(status, color, ICON_STAR)
     }
 
     fn icon_checkbox_with_flag(
         &self,
         status: ActionItemStatus,
-        style: StyleSet,
         color: &'static str,
-    ) -> (Cow<'static, str>, StyleSet) {
-        self.icon_checkbox_with(status, style, color, ICON_FLAG)
+    ) -> NoteTagIcon {
+        self.icon_checkbox_with(status, color, ICON_FLAG)
     }
 
-    fn icon_checkbox_with_1(
-        &self,
-        status: ActionItemStatus,
-        style: StyleSet,
-        color: &'static str,
-    ) -> (Cow<'static, str>, StyleSet) {
-        self.icon_checkbox_with(status, style, color, "<span class=\"content\">1</span>")
+    fn icon_checkbox_with_1(&self, status: ActionItemStatus, color: &'static str) -> NoteTagIcon {
+        self.icon_checkbox_with(status, color, "<span class=\"content\">1</span>")
     }
 
-    fn icon_checkbox_with_2(
-        &self,
-        status: ActionItemStatus,
-        style: StyleSet,
-        color: &'static str,
-    ) -> (Cow<'static, str>, StyleSet) {
-        self.icon_checkbox_with(status, style, color, "<span class=\"content\">2</span>")
+    fn icon_checkbox_with_2(&self, status: ActionItemStatus, color: &'static str) -> NoteTagIcon {
+        self.icon_checkbox_with(status, color, "<span class=\"content\">2</span>")
     }
 
-    fn icon_checkbox_with_3(
-        &self,
-        status: ActionItemStatus,
-        style: StyleSet,
-        color: &'static str,
-    ) -> (Cow<'static, str>, StyleSet) {
-        self.icon_checkbox_with(status, style, color, "<span class=\"content\">3</span>")
+    fn icon_checkbox_with_3(&self, status: ActionItemStatus, color: &'static str) -> NoteTagIcon {
+        self.icon_checkbox_with(status, color, "<span class=\"content\">3</span>")
     }
 
     fn icon_checkbox_with_exclamation(
         &self,
         status: ActionItemStatus,
-        style: StyleSet,
         color: &'static str,
-    ) -> (Cow<'static, str>, StyleSet) {
-        self.icon_checkbox_with(status, style, color, "<span class=\"content\">!</span>")
+    ) -> NoteTagIcon {
+        self.icon_checkbox_with(status, color, "<span class=\"content\">!</span>")
     }
 
     fn icon_checkbox_with(
         &self,
         status: ActionItemStatus,
-        mut style: StyleSet,
         color: &'static str,
         secondary_icon: &'static str,
-    ) -> (Cow<'static, str>, StyleSet) {
+    ) -> NoteTagIcon {
+        let mut style = StyleSet::new();
         style.set("fill", color.to_string());
 
         let mut content = String::new();
@@ -467,86 +387,37 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
             secondary_icon
         ));
 
-        (Cow::from(content), self.icon_style(IconSize::Large, style))
-    }
-
-    fn icon_checkmark(
-        &self,
-        mut style: StyleSet,
-        color: &'static str,
-    ) -> (Cow<'static, str>, StyleSet) {
-        style.set("fill", color.to_string());
-
-        (
-            Cow::from(ICON_CHECK_MARK),
-            self.icon_style(IconSize::Large, style),
-        )
-    }
-
-    fn icon_circle(
-        &self,
-        mut style: StyleSet,
-        color: &'static str,
-    ) -> (Cow<'static, str>, StyleSet) {
-        style.set("fill", color.to_string());
-
-        (
-            Cow::from(ICON_CIRCLE),
-            self.icon_style(IconSize::Normal, style),
-        )
-    }
-
-    fn icon_square(
-        &self,
-        mut style: StyleSet,
-        color: &'static str,
-    ) -> (Cow<'static, str>, StyleSet) {
-        style.set("fill", color.to_string());
-
-        (
-            Cow::from(ICON_SQUARE),
-            self.icon_style(IconSize::Large, style),
-        )
-    }
-
-    fn icon_style(&self, size: IconSize, mut style: StyleSet) -> StyleSet {
-        match size {
-            IconSize::Normal => {
-                style.set("height", "16px".to_string());
-                style.set("width", "16px".to_string());
-            }
-            IconSize::Large => {
-                style.set("height", "20px".to_string());
-                style.set("width", "20px".to_string());
-            }
+        NoteTagIcon {
+            html: Cow::from(content),
+            size: IconSize::Large,
+            styles: style,
+            is_checkbox: true,
         }
-
-        match (self.in_list, size) {
-            (false, IconSize::Normal) => {
-                style.set("left", "-23px".to_string());
-            }
-            (false, IconSize::Large) => {
-                style.set("left", "-25px".to_string());
-            }
-            (true, IconSize::Normal) => {
-                style.set("left", "-38px".to_string());
-            }
-            (true, IconSize::Large) => {
-                style.set("left", "-40px".to_string());
-            }
-        };
-
-        style
     }
 
-    fn icon_fallback(&self, shape: NoteTagShape, style: StyleSet) -> (Cow<'static, str>, StyleSet) {
-        warn!(
-            "Note tag shape {:?} not implemented; using fallback icon",
-            shape
-        );
-        (
-            Cow::from(ICON_QUESTION_MARK),
-            self.icon_style(IconSize::Normal, style),
-        )
+    fn icon_checkmark(&self, color: &'static str) -> NoteTagIcon {
+        let mut style = StyleSet::new();
+        style.set("fill", color.to_string());
+
+        NoteTagIcon {
+            is_checkbox: true,
+            html: Cow::from(ICON_CHECK_MARK),
+            size: IconSize::Large,
+            styles: style,
+        }
+    }
+
+    fn icon_circle(&self, color: &'static str) -> NoteTagIcon {
+        let mut style = StyleSet::new();
+        style.set("fill", color.to_string());
+
+        (Cow::from(ICON_CIRCLE), IconSize::Normal, style).into()
+    }
+
+    fn icon_square(&self, color: &'static str) -> NoteTagIcon {
+        let mut style = StyleSet::new();
+        style.set("fill", color.to_string());
+
+        (Cow::from(ICON_SQUARE), IconSize::Large, style).into()
     }
 }
