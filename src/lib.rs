@@ -59,6 +59,22 @@ pub fn convert(
                 notebook::Renderer::new().render(&notebook, &notebook_name, options, output_dir, fs)
             })?;
         }
+        #[cfg(feature = "onepkg")]
+        Some("onepkg") => {
+            let notebook_name = path
+                .file_stem()
+                .wrap_err("Input file has no name")?
+                .to_string_lossy();
+            log::info!("Processing package {}...", notebook_name);
+
+            let notebook = with_progress("[1/2] Parsing input package...", || {
+                parser.parse_package(path)
+            })?;
+
+            with_progress("[2/2] Rendering sections...", || {
+                notebook::Renderer::new().render(&notebook, &notebook_name, options, output_dir, fs)
+            })?;
+        }
         Some(ext) => return Err(eyre!("Invalid file extension: {}", ext)),
         _ => return Err(eyre!("Couldn't determine file type")),
     };

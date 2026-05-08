@@ -10,7 +10,7 @@ use std::process::exit;
 #[derive(Parser, Debug)]
 #[command(name = "one2html")]
 pub(crate) struct Opt {
-    /// Input files (`.one` or `.onetoc2` files)
+    /// Input files (`.one`, `.onetoc2`, or `.onepkg` files)
     #[arg(short, long, required = true, value_name = "FILE", num_args = 1..)]
     pub(crate) input: Vec<PathBuf>,
 

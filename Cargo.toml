@@ -10,7 +10,7 @@ keywords = ["onenote"]
 categories = ["command-line-utilities", "encoding"]
 
 [features]
-default = ["backtrace", "native-fs", "bin"]
+default = ["backtrace", "native-fs", "bin", "onepkg"]
 
 bin = [
     "native-fs",
@@ -21,6 +21,7 @@ bin = [
 ]
 backtrace = ["onenote_parser/backtrace"]
 native-fs = ["onenote_parser/native-fs"]
+onepkg = ["onenote_parser/onepkg"]
 
 [dependencies]
 askama = "0.15"
