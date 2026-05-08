@@ -11,7 +11,19 @@ mod section;
 mod templates;
 mod utils;
 
-pub fn convert(path: &Path, output_dir: &Path, fs: impl FileSystem) -> Result<()> {
+/// Conversion options.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Options {
+    /// Emit a per-section "Conversion Warnings" page listing non-fatal parser warnings.
+    pub warnings: bool,
+}
+
+pub fn convert(
+    path: &Path,
+    output_dir: &Path,
+    options: Options,
+    fs: impl FileSystem,
+) -> Result<()> {
     let parser = Parser::new_with_fs(fs);
 
     match path.extension().map(|p| p.to_string_lossy()).as_deref() {
@@ -21,7 +33,7 @@ pub fn convert(path: &Path, output_dir: &Path, fs: impl FileSystem) -> Result<()
 
             let section = with_progress("Parsing input file...", || parser.parse_section(path))?;
 
-            section::Renderer::new().render(&section, output_dir, fs)?;
+            section::Renderer::new().render(&section, output_dir, options, fs)?;
         }
         Some("onetoc2") => {
             let name = path
@@ -44,7 +56,7 @@ pub fn convert(path: &Path, output_dir: &Path, fs: impl FileSystem) -> Result<()
                 .to_string_lossy();
 
             with_progress("[2/2] Rendering sections...", || {
-                notebook::Renderer::new().render(&notebook, &notebook_name, output_dir, fs)
+                notebook::Renderer::new().render(&notebook, &notebook_name, options, output_dir, fs)
             })?;
         }
         Some(ext) => return Err(eyre!("Invalid file extension: {}", ext)),

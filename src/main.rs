@@ -17,6 +17,10 @@ pub(crate) struct Opt {
     /// Output directory
     #[arg(short, long, value_name = "DIR")]
     pub(crate) output: PathBuf,
+
+    /// Emit a per-section "Conversion Warnings" page listing non-fatal parser warnings
+    #[arg(long)]
+    pub(crate) warnings: bool,
 }
 
 #[cfg(feature = "backtrace")]
@@ -63,7 +67,14 @@ fn _main() -> Result<()> {
     assert!(!output_dir.is_file());
 
     for path in opt.input {
-        one2html::convert(&path, &output_dir, onenote_parser::fs::NativeFs {})?;
+        one2html::convert(
+            &path,
+            &output_dir,
+            one2html::Options {
+                warnings: opt.warnings,
+            },
+            onenote_parser::fs::NativeFs {},
+        )?;
     }
 
     Ok(())

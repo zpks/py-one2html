@@ -6,29 +6,18 @@ use color_eyre::eyre::WrapErr;
 #[template(path = "section.html")]
 struct NotebookTemplate<'a> {
     name: &'a str,
-    pages: Vec<Page<'a>>,
+    entries: &'a [Entry],
 }
 
-struct Page<'a> {
-    name: &'a str,
-    path: &'a str,
-    level: i32,
+pub(crate) struct Entry {
+    pub name: String,
+    pub path: String,
+    pub level: i32,
+    pub is_warnings: bool,
 }
 
-pub(crate) fn render(name: &str, pages: Vec<(String, String, i32)>) -> Result<String> {
-    let template = NotebookTemplate {
-        name,
-        pages: pages
-            .iter()
-            .map(|(name, path, level)| Page {
-                name,
-                path,
-                level: *level,
-            })
-            .collect(),
-    };
-
-    template
+pub(crate) fn render(name: &str, entries: &[Entry]) -> Result<String> {
+    NotebookTemplate { name, entries }
         .render()
         .wrap_err("Failed to render section template")
 }

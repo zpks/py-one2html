@@ -1,5 +1,5 @@
 use crate::utils::sanitize_output_filename;
-use crate::{page, templates};
+use crate::{Options, page, templates};
 use color_eyre::eyre::Result;
 use onenote_parser::FileSystem;
 use onenote_parser::section::Section;
@@ -23,15 +23,14 @@ impl Renderer {
         &mut self,
         section: &Section,
         output_dir: &Path,
+        options: Options,
         fs: impl FileSystem,
     ) -> Result<PathBuf> {
         let section_dir = output_dir.join(sanitize_filename::sanitize(section.display_name()));
 
-        if !fs.is_directory(&section_dir)? {
-            fs.make_dir(section_dir.as_path())?;
-        }
+        fs.make_dir(section_dir.as_path())?;
 
-        let mut toc = Vec::new();
+        let mut entries: Vec<templates::section::Entry> = Vec::new();
         let mut fallback_title_index = 0;
 
         for page_series in section.page_series() {
@@ -53,18 +52,47 @@ impl Renderer {
 
                 fs.write_file(output_file.as_path(), output.as_bytes())?;
 
-                toc.push((
-                    title,
-                    output_file
+                entries.push(templates::section::Entry {
+                    name: title,
+                    path: output_file
                         .strip_prefix(output_dir)?
                         .to_string_lossy()
                         .to_string(),
-                    page.level(),
-                ))
+                    level: page.level(),
+                    is_warnings: false,
+                });
             }
         }
 
-        let toc_html = templates::section::render(section.display_name(), toc)?;
+        let warnings = section.report().warnings();
+        if options.warnings && !warnings.is_empty() {
+            let stem = self.determine_page_filename("Warnings")?;
+            let filename = sanitize_filename::sanitize(stem + ".html");
+            let warnings_path = section_dir.join(&filename);
+
+            let warning_entries: Vec<templates::warnings::Entry> = warnings
+                .iter()
+                .map(|w| templates::warnings::Entry {
+                    page: w.page().map(|(_, title)| title).unwrap_or("(section-level)"),
+                    message: w.message(),
+                })
+                .collect();
+
+            let html = templates::warnings::render(section.display_name(), &warning_entries)?;
+            fs.write_file(warnings_path.as_path(), html.as_bytes())?;
+
+            entries.push(templates::section::Entry {
+                name: "\u{26A0} Conversion Warnings".to_string(),
+                path: warnings_path
+                    .strip_prefix(output_dir)?
+                    .to_string_lossy()
+                    .to_string(),
+                level: 0,
+                is_warnings: true,
+            });
+        }
+
+        let toc_html = templates::section::render(section.display_name(), &entries)?;
         let toc_name = sanitize_output_filename(section.display_name())? + ".html";
         let toc_file = output_dir.join(toc_name);
 

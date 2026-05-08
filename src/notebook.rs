@@ -1,6 +1,6 @@
 use crate::templates::notebook::Toc;
 use crate::utils::sanitize_output_filename;
-use crate::{section, templates};
+use crate::{Options, section, templates};
 use color_eyre::eyre::{Result, eyre};
 use onenote_parser::FileSystem;
 use onenote_parser::notebook::Notebook;
@@ -23,18 +23,15 @@ impl Renderer {
         &mut self,
         notebook: &Notebook,
         name: &str,
+        options: Options,
         output_dir: &Path,
         fs: impl FileSystem,
     ) -> Result<()> {
-        if !fs.is_directory(output_dir)? {
-            fs.make_dir(output_dir)?;
-        }
+        fs.make_dir(output_dir)?;
 
         let notebook_dir = output_dir.join(sanitize_filename::sanitize(name));
 
-        if !fs.is_directory(&notebook_dir)? {
-            fs.make_dir(notebook_dir.as_path())?;
-        }
+        fs.make_dir(notebook_dir.as_path())?;
 
         let mut toc = Vec::new();
 
@@ -45,6 +42,7 @@ impl Renderer {
                         section,
                         &notebook_dir,
                         output_dir,
+                        options,
                         fs,
                     )?));
                 }
@@ -52,15 +50,19 @@ impl Renderer {
                     let dir_name = sanitize_filename::sanitize(group.display_name());
                     let group_dir = notebook_dir.join(dir_name);
 
-                    if !fs.is_directory(&group_dir)? {
-                        fs.make_dir(group_dir.as_path())?;
-                    }
+                    fs.make_dir(group_dir.as_path())?;
 
                     let mut entries = Vec::new();
 
                     for entry in group.entries() {
                         if let SectionEntry::Section(section) = entry {
-                            entries.push(self.render_section(section, &group_dir, output_dir, fs)?);
+                            entries.push(self.render_section(
+                                section,
+                                &group_dir,
+                                output_dir,
+                                options,
+                                fs,
+                            )?);
                         } else {
                             return Err(eyre!("Nested section groups are not yet supported"));
                         }
@@ -85,10 +87,11 @@ impl Renderer {
         section: &Section,
         notebook_dir: &Path,
         base_dir: &Path,
+        options: Options,
         fs: impl FileSystem,
     ) -> Result<templates::notebook::Section> {
         let mut renderer = section::Renderer::new();
-        let path = renderer.render(section, notebook_dir, fs)?;
+        let path = renderer.render(section, notebook_dir, options, fs)?;
 
         Ok(templates::notebook::Section {
             name: section.display_name().to_string(),

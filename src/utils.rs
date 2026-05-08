@@ -23,7 +23,9 @@ pub(crate) fn with_progress<T, F: FnMut() -> T>(msg: &'static str, mut f: F) -> 
 }
 
 #[cfg(not(feature = "native-fs"))]
-pub(crate) fn with_progress<T, F: FnMut() -> T>(_msg: &'static str, mut f: F) -> T {
+pub(crate) fn with_progress<T, F: FnMut() -> T>(msg: &'static str, mut f: F) -> T {
+    log::info!("{}", msg);
+
     f()
 }
 

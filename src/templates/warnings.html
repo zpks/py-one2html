@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Conversion Warnings — {{ section }}</title>
+    <style>
+        main {
+            font-family: sans-serif;
+            max-width: 60em;
+            margin: 2em auto;
+            padding: 0 1em;
+        }
+        h1 { font-size: 1.4em; }
+        .intro { color: #555; }
+        ul { padding-left: 1.2em; }
+        li { margin: 0.3em 0; }
+        .page { font-weight: 600; }
+    </style>
+</head>
+<body>
+
+<main>
+    <h1>Conversion warnings — {{ section }}</h1>
+    <p class="intro">The following non-fatal issues were encountered while converting this section.
+        These are not part of the original notebook.</p>
+    <ul>
+        {% for entry in entries -%}
+        <li><span class="page">{{ entry.page }}</span>: {{ entry.message }}</li>
+        {% endfor %}
+    </ul>
+</main>
+
+<script>
+    if (window.parent !== null) {
+        window.parent.postMessage(window.location.href, '*');
+    }
+</script>
+</body>
+</html>
