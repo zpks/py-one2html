@@ -26,33 +26,32 @@ jobs:
             args: '--features backtrace'
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@master
         with:
-          profile: minimal
           toolchain: ${{ matrix.rust }}
-          override: true
           components: rustfmt, clippy
 
-      - uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: ${{ matrix.args }}
+      - run: cargo build ${{ matrix.args }}
 
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: ${{ matrix.args }}
+      - run: cargo test ${{ matrix.args }}
 
-      - uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+      - run: cargo fmt --all -- --check
 
-      - uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: ${{ matrix.args }} -- -D warnings
+      - run: cargo clippy ${{ matrix.args }} -- -D warnings
 
       - uses: EmbarkStudios/cargo-deny-action@v2
+
+  wasm:
+    name: WASM build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - run: cargo build --lib --no-default-features --target wasm32-unknown-unknown
