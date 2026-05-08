@@ -29,11 +29,7 @@ pub(crate) struct Renderer<'a, FS: FileSystem> {
 }
 
 impl<'a, FS: FileSystem> Renderer<'a, FS> {
-    pub(crate) fn new(
-        output: PathBuf,
-        section: &'a mut section::Renderer,
-        fs: FS,
-    ) -> Self {
+    pub(crate) fn new(output: PathBuf, section: &'a mut section::Renderer, fs: FS) -> Self {
         Self {
             fs,
             output,

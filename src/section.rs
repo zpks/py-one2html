@@ -73,7 +73,10 @@ impl Renderer {
             let warning_entries: Vec<templates::warnings::Entry> = warnings
                 .iter()
                 .map(|w| templates::warnings::Entry {
-                    page: w.page().map(|(_, title)| title).unwrap_or("(section-level)"),
+                    page: w
+                        .page()
+                        .map(|(_, title)| title)
+                        .unwrap_or("(section-level)"),
                     message: w.message(),
                 })
                 .collect();

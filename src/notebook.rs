@@ -56,13 +56,9 @@ impl Renderer {
 
                     for entry in group.entries() {
                         if let SectionEntry::Section(section) = entry {
-                            entries.push(self.render_section(
-                                section,
-                                &group_dir,
-                                output_dir,
-                                options,
-                                fs,
-                            )?);
+                            entries.push(
+                                self.render_section(section, &group_dir, output_dir, options, fs)?,
+                            );
                         } else {
                             return Err(eyre!("Nested section groups are not yet supported"));
                         }
