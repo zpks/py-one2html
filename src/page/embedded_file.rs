@@ -62,18 +62,20 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
             }
 
             let path = PathBuf::from(&sanitized);
+
             let ext = path
                 .extension()
-                .wrap_err("Embedded file has no extension")?
-                .to_str()
-                .wrap_err("Embedded file name is non utf-8")?;
-            let base = path
-                .as_os_str()
-                .to_str()
-                .wrap_err("Embedded file name is non utf-8")?
-                .strip_suffix(ext)
-                .wrap_err("Failed to strip extension from file name")?
-                .trim_matches('.');
+                .unwrap_or("bin".as_ref())
+                .to_string_lossy()
+                .to_string();
+
+            let path_str = path.as_os_str().to_string_lossy();
+
+            let base = path_str
+                .strip_suffix(&ext)
+                .map(|s| s.trim_matches('.'))
+                .unwrap_or(path_str.as_ref())
+                .to_string();
 
             current_filename = format!("{}-{}.{}", base, i, ext);
 
