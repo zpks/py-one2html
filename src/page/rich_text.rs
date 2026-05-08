@@ -1,7 +1,6 @@
 use crate::page::Renderer;
 use crate::utils::{AttributeSet, StyleSet, px};
 use color_eyre::Result;
-use color_eyre::eyre::ContextCompat;
 use color_eyre::eyre::WrapErr;
 use itertools::Itertools;
 use log::warn;
@@ -151,34 +150,58 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
         styles: &[ParagraphStyling],
         parts: Vec<String>,
     ) -> Result<Vec<String>> {
-        let mut in_hyperlink = false;
+        // Inline hyperlinks are encoded as a hidden marker run followed by the
+        // visible display run. We track the URL extracted from the marker and
+        // hand it to the next HyperlinkProtected run.
+        //
+        //   marker run:  Hidden=T, HyperlinkProtected=T (§2.3.76 + §2.3.77)
+        //                text = "\u{fddf}HYPERLINK \"URL\""  ← OneNote-internal
+        //                                                      encoding; spec
+        //                                                      defines no
+        //                                                      out-of-band URL
+        //                                                      field for inline
+        //                                                      hyperlinks
+        //   display run: HyperlinkProtected=T, Hidden=F (§2.3.77)
+        //                text = visible link text, styled normally
+        let mut pending_url: Option<String> = None;
 
         parts
             .into_iter()
             .rev()
             .zip(styles.iter().map(Some).chain(repeat(None)))
-            .map(|(text, style)| {
+            .map(|(text, style)| -> Result<String> {
                 let style = match style {
                     Some(style) => style,
                     None => return Ok(text),
                 };
 
-                if style.hyperlink() {
-                    let text = self.render_hyperlink(text, style, in_hyperlink);
-                    in_hyperlink = true;
-
-                    return text;
+                if style.hidden() {
+                    pending_url = extract_hyperlink_url(&text);
+                    return Ok(String::new());
                 }
 
-                in_hyperlink = false;
-
-                let style = self.parse_style(style);
-
-                if style.len() > 0 {
-                    Ok(format!("<span style=\"{}\">{}</span>", style, text))
-                } else {
-                    Ok(text)
+                if style.hyperlink_protected() {
+                    let parsed_style = self.parse_style(style);
+                    return Ok(match pending_url.take() {
+                        Some(url) => format!(
+                            "<a href=\"{}\" style=\"{}\">{}</a>",
+                            url, parsed_style, text
+                        ),
+                        None => {
+                            warn!(
+                                "Hyperlink display run with no preceding URL marker: {:?}",
+                                text
+                            );
+                            render_styled_span(parsed_style, text)
+                        }
+                    });
                 }
+
+                // A plain run resets any unconsumed marker URL — keeps state
+                // from leaking across an unexpected gap.
+                pending_url = None;
+
+                Ok(render_styled_span(self.parse_style(style), text))
             })
             .collect::<Result<Vec<String>>>()
     }
@@ -206,33 +229,6 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
             .collect::<Result<Vec<_>>>()
     }
 
-    fn render_hyperlink(
-        &self,
-        text: String,
-        style: &ParagraphStyling,
-        in_hyperlink: bool,
-    ) -> Result<String> {
-        const HYPERLINK_MARKER: &str = "\u{fddf}HYPERLINK \"";
-
-        let style = self.parse_style(style);
-
-        if text.starts_with(HYPERLINK_MARKER) {
-            let url = text
-                .strip_prefix(HYPERLINK_MARKER)
-                .wrap_err("Hyperlink has no start marker")?
-                .strip_suffix('"')
-                .wrap_err("Hyperlink has no end marker")?;
-
-            Ok(format!("<a href=\"{}\" style=\"{}\">", url, style))
-        } else if in_hyperlink {
-            Ok(text + "</a>")
-        } else {
-            Ok(format!(
-                "<a href=\"{}\" style=\"{}\">{}</a>",
-                text, style, text
-            ))
-        }
-    }
 
     fn parse_paragraph_styles(&self, text: &RichText) -> StyleSet {
         if !text.embedded_objects().is_empty() {
@@ -375,6 +371,22 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
 
 fn is_tag(tag: &str) -> bool {
     !matches!(tag, "PageDateTime" | "PageTitle")
+}
+
+fn extract_hyperlink_url(text: &str) -> Option<String> {
+    const HYPERLINK_MARKER: &str = "\u{fddf}HYPERLINK \"";
+
+    text.strip_prefix(HYPERLINK_MARKER)
+        .and_then(|s| s.strip_suffix('"'))
+        .map(str::to_owned)
+}
+
+fn render_styled_span(style: StyleSet, text: String) -> String {
+    if style.len() > 0 {
+        format!("<span style=\"{}\">{}</span>", style, text)
+    } else {
+        text
+    }
 }
 
 fn fix_newlines(text: String) -> String {
