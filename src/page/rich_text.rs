@@ -301,11 +301,14 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
             return StyleSet::new();
         }
 
+        // Paragraph-level styles only. We deliberately do *not* fold a
+        // single run's style in here: `render_text_run_styles` already
+        // wraps each run in its own styled span, so adding the run's
+        // style to the outer paragraph wrap produces an identical span
+        // nested inside it (`<span ...><span ...>text</span></span>`).
+        // Run styling stays on runs; this wrapper carries paragraph-only
+        // concerns (padding, alignment).
         let mut styles = self.parse_style(text.paragraph_style());
-
-        if let [style] = text.text_run_formatting() {
-            styles.extend(self.parse_style(style))
-        }
 
         if text.paragraph_space_before() > 0.0 {
             styles.set("padding-top", px(text.paragraph_space_before()))
