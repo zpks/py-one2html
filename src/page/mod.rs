@@ -83,7 +83,7 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
 
         content.push_str(&page_content);
 
-        crate::templates::page::render(title_text, &content, &self.global_styles)
+        crate::templates::page::render(title_text, &content, &self.global_styles, self.options)
     }
 
     pub(crate) fn gen_class(&mut self, prefix: &str) -> String {

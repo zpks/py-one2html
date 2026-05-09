@@ -1,3 +1,4 @@
+use crate::Options;
 use crate::utils::StyleSet;
 use askama::Template;
 use color_eyre::Result;
@@ -11,12 +12,14 @@ struct PageTemplate<'a> {
     name: &'a str,
     content: &'a str,
     global_styles: Vec<(&'a String, &'a StyleSet)>,
+    options: Options,
 }
 
 pub(crate) fn render(
     name: &str,
     content: &str,
     global_styles: &HashMap<String, StyleSet>,
+    options: Options,
 ) -> Result<String> {
     PageTemplate {
         name,
@@ -25,6 +28,7 @@ pub(crate) fn render(
             .iter()
             .sorted_by(|(a, _), (b, _)| Ord::cmp(a, b))
             .collect(),
+        options,
     }
     .render()
     .wrap_err("Failed to render page template")

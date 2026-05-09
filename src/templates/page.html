@@ -34,6 +34,11 @@
     }
 </script>
 <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
-<script type="text/javascript" id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@4/mml-svg.js"></script>
+{% match options.math_target %}
+{% when crate::MathTarget::MathML %}
+<script type="text/javascript" id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@4/mml-chtml.js"></script>
+{% when crate::MathTarget::LaTeX %}
+<script type="text/javascript" id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js"></script>
+{% endmatch %}
 </body>
 </html>
