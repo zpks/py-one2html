@@ -73,7 +73,7 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
         }
 
         let mut contents = String::new();
-        let is_list = self.is_list(element);
+        let is_list_item = self.is_list(element) || self.is_tag_list(element);
 
         let mut attrs = AttributeSet::new();
         attrs.set("class", "outline-element".to_string());
@@ -82,13 +82,13 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
         styles.set("margin-left", px(indent_width));
         attrs.set("style", styles.to_string());
 
-        if is_list {
+        if is_list_item {
             contents.push_str(&format!("<li {}>", attrs));
         } else {
             contents.push_str(&format!("<div {}>", attrs));
         }
 
-        self.in_list = is_list;
+        self.in_list = is_list_item;
 
         contents.extend(
             element
@@ -100,7 +100,7 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
 
         self.in_list = false;
 
-        if !is_list {
+        if !is_list_item {
             contents.push_str("</div>");
         }
 
@@ -115,7 +115,7 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
             )?);
         }
 
-        if is_list {
+        if is_list_item {
             contents.push_str("</li>");
         }
 
