@@ -113,10 +113,17 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
             return Ok(content.join(""));
         }
 
+        // `content` may be longer than `styles` when text-run boundaries
+        // outnumber resolved style entries (parts > styles is spec-allowed
+        // and also occurs after filter-mapping unresolved style objects).
+        // Plain `zip` would drop the trailing content silently; chain a
+        // `None` tail and treat it as non-math so trailing prose survives.
         let math_groups = content
             .into_iter()
-            .zip(styles.iter())
-            .chunk_by(|(_text, style)| style.math_formatting());
+            .zip(styles.iter().map(Some).chain(repeat(None)))
+            .chunk_by(|(_text, style)| {
+                style.map(|s| s.math_formatting()).unwrap_or(false)
+            });
 
         let mut math_object_offset = 0;
 
