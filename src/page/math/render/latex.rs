@@ -34,8 +34,12 @@ use color_eyre::eyre::eyre;
 use itertools::Itertools;
 use log::warn;
 
-pub(super) fn render_equation(equation: Equation) -> Result<String> {
-    Ok(format!("\\({}\\)", render_eq(equation)?))
+pub(super) fn render_equation(equation: Equation, block: bool) -> Result<String> {
+    if block {
+        Ok(format!("\\[{}\\]", render_eq(equation)?))
+    } else {
+        Ok(format!("\\({}\\)", render_eq(equation)?))
+    }
 }
 
 fn render_eq(eq: Equation) -> Result<String> {

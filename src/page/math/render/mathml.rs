@@ -10,9 +10,11 @@ use color_eyre::eyre::eyre;
 use itertools::Itertools;
 use log::warn;
 
-pub(super) fn render_equation(equation: Equation) -> color_eyre::Result<String> {
+pub(super) fn render_equation(equation: Equation, block: bool) -> color_eyre::Result<String> {
+    let display_attr = if block { " display=\"block\"" } else { "" };
     Ok(format!(
-        "<math xmlns=\"http://www.w3.org/1998/Math/MathML\">{}</math>",
+        "<math xmlns=\"http://www.w3.org/1998/Math/MathML\"{}>{}</math>",
+        display_attr,
         render_eq(equation)?
     ))
 }

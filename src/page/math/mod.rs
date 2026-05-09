@@ -12,11 +12,15 @@ use parser::Parser;
 use render::render_equation;
 
 impl<'a, FS: FileSystem> Renderer<'a, FS> {
-    pub(crate) fn render_math(&self, segments: Vec<(String, MathInlineObject)>) -> Result<String> {
+    pub(crate) fn render_math(
+        &self,
+        segments: Vec<(String, MathInlineObject)>,
+        block: bool,
+    ) -> Result<String> {
         let mut parser = Parser::new(segments)?;
         let equation = parser.parse()?;
 
-        let markup = render_equation(equation, self.options)?;
+        let markup = render_equation(equation, self.options, block)?;
 
         Ok(markup)
     }

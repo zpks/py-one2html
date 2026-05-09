@@ -113,6 +113,12 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
             return Ok(content.join(""));
         }
 
+        // A paragraph that is *entirely* math (every run has math
+        // formatting, no surrounding prose — not even a stray space)
+        // renders as a display-mode equation in OneNote: bigger, on its
+        // own line. Any non-math content drops it to inline-style.
+        let block = !styles.is_empty() && styles.iter().all(|s| s.math_formatting());
+
         // `content` may be longer than `styles` when text-run boundaries
         // outnumber resolved style entries (parts > styles is spec-allowed
         // and also occurs after filter-mapping unresolved style objects).
@@ -141,7 +147,7 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
 
                 if math_object_offset >= inline_objects.len() {
                     let segment = (text, MathInlineObject::default());
-                    return self.render_math(vec![segment]);
+                    return self.render_math(vec![segment], block);
                 }
 
                 let count = group_parts.len();
@@ -154,7 +160,7 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
                     .zip(objects)
                     .collect_vec();
 
-                let text = self.render_math(segments)?;
+                let text = self.render_math(segments, block)?;
                 math_object_offset += count;
 
                 Ok(text)
