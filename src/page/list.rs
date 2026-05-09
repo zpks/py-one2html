@@ -41,8 +41,8 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
             }
 
             // Open the appropriate list if needed.
-            if current.is_none() {
-                if let Some(kind) = wanted {
+            if current.is_none()
+                && let Some(kind) = wanted {
                     let (start, end) = match kind {
                         ListKind::Bullet => self.list_tags(element),
                         ListKind::Tagged => {
@@ -53,7 +53,6 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
                     list_end = Some(end);
                     current = Some(kind);
                 }
-            }
 
             contents.push_str(&self.render_outline_element(
                 element,

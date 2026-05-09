@@ -1,8 +1,6 @@
 #![deny(clippy::disallowed_methods, clippy::disallowed_types)]
 
 use crate::utils::with_progress;
-#[cfg(feature = "bin")]
-use clap::ValueEnum;
 use color_eyre::eyre::{ContextCompat, Result, eyre};
 use onenote_parser::{FileSystem, Parser};
 use std::path::Path;

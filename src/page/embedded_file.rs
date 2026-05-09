@@ -1,7 +1,7 @@
 use crate::page::Renderer;
 use crate::utils::sanitize_output_filename;
 use color_eyre::Result;
-use color_eyre::eyre::{ContextCompat, WrapErr};
+use color_eyre::eyre::WrapErr;
 use onenote_parser::FileSystem;
 use onenote_parser::contents::EmbeddedFile;
 use onenote_parser::property::embedded_file::FileType;
