@@ -1,5 +1,5 @@
-use crate::section;
 use crate::utils::StyleSet;
+use crate::{Options, section};
 use color_eyre::Result;
 use onenote_parser::FileSystem;
 use onenote_parser::page::{Page, PageContent};
@@ -26,10 +26,16 @@ pub(crate) struct Renderer<'a, FS: FileSystem> {
     in_list: bool,
     global_styles: HashMap<String, StyleSet>,
     global_classes: HashSet<String>,
+    options: Options,
 }
 
 impl<'a, FS: FileSystem> Renderer<'a, FS> {
-    pub(crate) fn new(output: PathBuf, section: &'a mut section::Renderer, fs: FS) -> Self {
+    pub(crate) fn new(
+        output: PathBuf,
+        section: &'a mut section::Renderer,
+        options: Options,
+        fs: FS,
+    ) -> Self {
         Self {
             fs,
             output,
@@ -37,6 +43,7 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
             in_list: false,
             global_styles: HashMap::new(),
             global_classes: HashSet::new(),
+            options,
         }
     }
 

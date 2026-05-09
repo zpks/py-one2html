@@ -3,6 +3,7 @@
 use clap::Parser;
 use color_eyre::eyre::Result;
 use log::LevelFilter;
+use one2html::MathTarget;
 use simplelog::{ColorChoice, CombinedLogger, Config, TermLogger, TerminalMode};
 use std::path::PathBuf;
 use std::process::exit;
@@ -21,6 +22,10 @@ pub(crate) struct Opt {
     /// Emit a per-section "Conversion Warnings" page listing non-fatal parser warnings
     #[arg(long)]
     pub(crate) warnings: bool,
+
+    /// How to render math equations
+    #[arg(long, default_value = "mathml")]
+    pub(crate) math_target: MathTarget,
 }
 
 #[cfg(feature = "backtrace")]
@@ -72,6 +77,7 @@ fn _main() -> Result<()> {
             &output_dir,
             one2html::Options {
                 warnings: opt.warnings,
+                math_target: opt.math_target,
             },
             onenote_parser::fs::NativeFs {},
         )?;

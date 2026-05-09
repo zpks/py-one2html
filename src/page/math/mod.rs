@@ -16,7 +16,7 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
         let mut parser = Parser::new(segments)?;
         let equation = parser.parse()?;
 
-        let markup = render_equation(equation)?;
+        let markup = render_equation(equation, self.options)?;
 
         Ok(markup)
     }

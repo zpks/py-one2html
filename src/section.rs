@@ -47,7 +47,7 @@ impl Renderer {
 
                 let output_file = section_dir.join(file_name);
 
-                let mut renderer = page::Renderer::new(section_dir.clone(), self, fs);
+                let mut renderer = page::Renderer::new(section_dir.clone(), self, options, fs);
                 let output = renderer.render_page(page)?;
 
                 fs.write_file(output_file.as_path(), output.as_bytes())?;

@@ -1,6 +1,8 @@
 #![deny(clippy::disallowed_methods, clippy::disallowed_types)]
 
 use crate::utils::with_progress;
+#[cfg(feature = "bin")]
+use clap::ValueEnum;
 use color_eyre::eyre::{ContextCompat, Result, eyre};
 use onenote_parser::{FileSystem, Parser};
 use std::path::Path;
@@ -16,6 +18,17 @@ mod utils;
 pub struct Options {
     /// Emit a per-section "Conversion Warnings" page listing non-fatal parser warnings.
     pub warnings: bool,
+
+    pub math_target: MathTarget,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(feature = "bin", derive(clap::ValueEnum))]
+#[cfg_attr(feature = "bin", value(rename_all = "lower"))]
+pub enum MathTarget {
+    #[default]
+    MathML,
+    LaTeX,
 }
 
 pub fn convert(
