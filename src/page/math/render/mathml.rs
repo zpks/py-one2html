@@ -519,17 +519,31 @@ fn render_nary(
             std::mem::swap(&mut sub_content, &mut sup_content);
         }
 
-        let nary = match display.align {
-            NAryAlignment::LimitsSubSup | NAryAlignment::UpperLimitAsSuperScript => {
-                format!(
-                    "<msubsup>{}{}{}</msubsup>",
-                    op_node, sub_content, sup_content
-                )
-            }
-            _ => format!(
+        // Integrals conventionally render bounds as sub/superscripts unless
+        // the source explicitly requested above/below (which OneNote stores
+        // for display-style equations). Other operators (∑ ∏ etc.) follow
+        // the source flag, defaulting to above/below.
+        // Integrals always render bounds as sub/superscripts in OneNote,
+        // regardless of the source's `LimitsUnderOver` flag — that flag
+        // controls display *size*, not bound placement, for integrals.
+        // Other operators (∑ ∏ etc.) follow the source flag, defaulting
+        // to above/below.
+        let beside = is_integral_op(op)
+            || matches!(
+                display.align,
+                NAryAlignment::LimitsSubSup | NAryAlignment::UpperLimitAsSuperScript
+            );
+
+        let nary = if beside {
+            format!(
+                "<msubsup>{}{}{}</msubsup>",
+                op_node, sub_content, sup_content
+            )
+        } else {
+            format!(
                 "<munderover>{}{}{}</munderover>",
                 op_node, sub_content, sup_content
-            ),
+            )
         };
 
         return Ok(format!("<mrow>{}{}</mrow>", nary, render_group(body)?));
@@ -537,13 +551,36 @@ fn render_nary(
 
     let sub = render_group(sub)?;
     let sup = render_group(sup)?;
+    let tag = if is_integral_op(op) {
+        "msubsup"
+    } else {
+        "munderover"
+    };
     Ok(format!(
-        "<mrow><munderover>{}{}{}</munderover>{}</mrow>",
+        "<mrow><{0}>{1}{2}{3}</{0}>{4}</mrow>",
+        tag,
         op_node,
         sub,
         sup,
         render_group(body)?
     ))
+}
+
+/// Integrals conventionally render their bounds as sub/superscripts beside
+/// the symbol, not stacked above/below — `<munderover>` would force the
+/// stacked form regardless of operator. Anything in this set defaults to
+/// `<msubsup>` when the source doesn't pin down `\limits` vs `\nolimits`.
+fn is_integral_op(c: char) -> bool {
+    matches!(
+        c,
+        '\u{222B}' // ∫
+        | '\u{222C}' // ∬
+        | '\u{222D}' // ∭
+        | '\u{2A0C}' // ⨌
+        | '\u{222E}' // ∮
+        | '\u{222F}' // ∯
+        | '\u{2230}' // ∰
+    )
 }
 
 fn render_over_bar(body: Equation) -> color_eyre::Result<String> {
