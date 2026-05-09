@@ -73,14 +73,7 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
             );
         }
 
-        let mut text = data.text().to_string();
-
-        if text.is_empty() {
-            // Use a raw NBSP — the text run output goes through html_escape,
-            // which would turn a literal `&nbsp;` into `&amp;nbsp;`. The raw
-            // character renders identically and survives escaping unchanged.
-            text = "\u{00A0}".to_string();
-        }
+        let text = data.text().to_string();
 
         let parts = if !indices.is_empty() {
             self.split_by_indices(indices, text)?
@@ -94,7 +87,17 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
         // Render math groups
         let content = self.render_math_text_runs(data, styles, content)?;
 
-        Ok(fix_newlines(content))
+        let content = fix_newlines(content);
+
+        // Browsers collapse truly-empty <p></p> to no vertical space, so
+        // emit a placeholder when nothing renders — covers both empty
+        // source text and paragraphs whose only runs were hidden marker
+        // runs. Raw NBSP (post-escape) keeps the line height.
+        if content.is_empty() {
+            return Ok("\u{00A0}".to_string());
+        }
+
+        Ok(content)
     }
 
     fn render_math_text_runs(
@@ -103,6 +106,13 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
         styles: &[ParagraphStyling],
         content: Vec<String>,
     ) -> Result<String> {
+        // No styles means no run-level formatting at all (and therefore no
+        // math). Joining content directly avoids the zip below silently
+        // dropping every part because `styles.iter()` is empty.
+        if styles.is_empty() {
+            return Ok(content.join(""));
+        }
+
         let math_groups = content
             .into_iter()
             .zip(styles.iter())
