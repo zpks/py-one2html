@@ -169,7 +169,17 @@ fn render_text(text: String) -> Result<String> {
             ),
             Some(TextType::Identifier) => render_identifier(&text),
             Some(TextType::Mono) => format!("\\mathtt{{{}}}", decode_letters(&text, text_type)),
-            Some(TextType::Normal) => text,
+            // `<mi mathvariant="normal">…</mi>` text — upright in MathML.
+            // Use `\operatorname{}`, not bare text or `\mathrm{}`:
+            //   - bare `cos` italicises in math mode (`c·o·s`).
+            //   - `\mathrm{cos}` is upright but ord-class, so neighbours
+            //     stay flush (`2ab\mathrm{cos}C` → `2abcosC`).
+            //   - `\operatorname{cos}` is upright AND mathop-class, so
+            //     adjacent ord atoms get the same 3mu auto-spacing that
+            //     MathJax inserts around multi-letter `<mi>` runs. This
+            //     also matches the implicit spacing of LaTeX's built-in
+            //     `\cos`/`\sin`/… without us shipping a per-name table.
+            Some(TextType::Normal) => format!("\\operatorname{{{}}}", text),
             Some(TextType::Numeric) => text,
             Some(TextType::Operator) => render_operator_run(&text),
             Some(TextType::Raw) => text,
@@ -304,8 +314,10 @@ fn render_operator_run(text: &str) -> String {
 /// rendered by MathJax / unicode-math.
 fn escape_operator_char(c: char) -> String {
     match c {
-        // Function-application invisible operator: LaTeX expresses this via
-        // juxtaposition, so drop it.
+        // Function-application invisible operator: the parser consumes
+        // these into a structured `MathOp::FunctionApply`, so this branch
+        // is for the rare case where one slipped through as raw text.
+        // Drop it — `render_function_apply` supplies the visible spacing.
         '\u{2061}' => String::new(),
         '\\' => "\\backslash ".to_string(),
         '{' => "\\{".to_string(),
@@ -513,6 +525,11 @@ fn render_fraction(num: Equation, den: Equation, small: bool) -> Result<String> 
 }
 
 fn render_function_apply(func: Equation, body: Equation) -> Result<String> {
+    // The U+2061 invisible function-application operator in the source
+    // MathML carries the visible thin space between e.g. `cos` and its
+    // argument. We don't need to inject one here: the function name is
+    // rendered via `\operatorname{}` (mathop-class), so adjacent atoms
+    // pick up TeX's automatic 3mu spacing — same look as `\cos x`.
     Ok(format!("{}{}", render_group(func)?, render_group(body)?))
 }
 
