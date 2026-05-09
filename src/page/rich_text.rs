@@ -161,9 +161,14 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
         //                                                      out-of-band URL
         //                                                      field for inline
         //                                                      hyperlinks
+        //                A single marker can be split across multiple
+        //                consecutive hidden runs when the URL contains
+        //                characters that need a different font (e.g. CJK in
+        //                the path), so we accumulate them and parse on the
+        //                transition to a visible run.
         //   display run: HyperlinkProtected=T, Hidden=F (§2.3.77)
         //                text = visible link text, styled normally
-        let mut pending_url: Option<String> = None;
+        let mut pending_marker = String::new();
 
         parts
             .into_iter()
@@ -176,14 +181,17 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
                 };
 
                 if style.hidden() {
-                    pending_url = extract_hyperlink_url(&text);
+                    pending_marker.push_str(&text);
                     return Ok(String::new());
                 }
+
+                let pending_url = extract_hyperlink_url(&pending_marker);
+                pending_marker.clear();
 
                 if style.hyperlink_protected() {
                     let parsed_style = self.parse_style(style);
                     let escaped = html_escape(&text);
-                    return Ok(match pending_url.take() {
+                    return Ok(match pending_url {
                         Some(url) => format!(
                             "<a href=\"{}\" style=\"{}\">{}</a>",
                             url, parsed_style, escaped
@@ -197,10 +205,6 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
                         }
                     });
                 }
-
-                // A plain run resets any unconsumed marker URL — keeps state
-                // from leaking across an unexpected gap.
-                pending_url = None;
 
                 // Bare-URL run: wrap in `<a>` directly so OneNote's `<URL>`
                 // citation pattern (split across runs as `From <`, URL, `>`)
