@@ -172,7 +172,7 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
             .map(|(text, style)| -> Result<String> {
                 let style = match style {
                     Some(style) => style,
-                    None => return Ok(text),
+                    None => return Ok(html_escape(&text)),
                 };
 
                 if style.hidden() {
@@ -182,17 +182,18 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
 
                 if style.hyperlink_protected() {
                     let parsed_style = self.parse_style(style);
+                    let escaped = html_escape(&text);
                     return Ok(match pending_url.take() {
                         Some(url) => format!(
                             "<a href=\"{}\" style=\"{}\">{}</a>",
-                            url, parsed_style, text
+                            url, parsed_style, escaped
                         ),
                         None => {
                             warn!(
                                 "Hyperlink display run with no preceding URL marker: {:?}",
                                 text
                             );
-                            render_styled_span(parsed_style, text)
+                            render_styled_span(parsed_style, escaped)
                         }
                     });
                 }
@@ -200,6 +201,35 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
                 // A plain run resets any unconsumed marker URL — keeps state
                 // from leaking across an unexpected gap.
                 pending_url = None;
+
+                // Bare-URL run: wrap in `<a>` directly so OneNote's `<URL>`
+                // citation pattern (split across runs as `From <`, URL, `>`)
+                // produces `From &lt;<a>URL</a>&gt;`. Mirrors the
+                // hyperlink_protected formatting (early return, no extra span).
+                if !style.math_formatting()
+                    && (text.starts_with("http://") || text.starts_with("https://"))
+                {
+                    let parsed_style = self.parse_style(style);
+                    let url = text.trim_end();
+                    let trailing = &text[url.len()..];
+                    return Ok(format!(
+                        "<a href=\"{}\" style=\"{}\">{}</a>{}",
+                        url,
+                        parsed_style,
+                        html_escape(url),
+                        html_escape(trailing)
+                    ));
+                }
+
+                // Math runs feed the math parser, which tokenises raw text
+                // (and treats `&` as an alignment marker), so leave them
+                // unescaped. Everything else is HTML-escaped, with any
+                // single-run `<URL>` citation pattern auto-linked.
+                let text = if style.math_formatting() {
+                    text
+                } else {
+                    autolink_angle_url(&html_escape(&text))
+                };
 
                 Ok(render_styled_span(self.parse_style(style), text))
             })
@@ -379,6 +409,26 @@ fn extract_hyperlink_url(text: &str) -> Option<String> {
     text.strip_prefix(HYPERLINK_MARKER)
         .and_then(|s| s.strip_suffix('"'))
         .map(str::to_owned)
+}
+
+fn html_escape(text: &str) -> String {
+    text.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+}
+
+/// Turn the OneNote `<URL>` citation pattern into a clickable link, operating
+/// on text that has already been HTML-escaped (so the angle brackets are
+/// `&lt;`/`&gt;` and any `&` inside the URL is `&amp;`).
+fn autolink_angle_url(escaped: &str) -> String {
+    static RE: Lazy<Regex> = Lazy::new(|| {
+        Regex::new(r"&lt;(https?://\S+?)&gt;").expect("invalid auto-link regex")
+    });
+
+    RE.replace_all(escaped, |caps: &Captures| {
+        format!("&lt;<a href=\"{0}\">{0}</a>&gt;", &caps[1])
+    })
+    .into_owned()
 }
 
 fn render_styled_span(style: StyleSet, text: String) -> String {
