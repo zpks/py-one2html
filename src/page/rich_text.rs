@@ -76,7 +76,10 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
         let mut text = data.text().to_string();
 
         if text.is_empty() {
-            text = "&nbsp;".to_string();
+            // Use a raw NBSP — the text run output goes through html_escape,
+            // which would turn a literal `&nbsp;` into `&amp;nbsp;`. The raw
+            // character renders identically and survives escaping unchanged.
+            text = "\u{00A0}".to_string();
         }
 
         let parts = if !indices.is_empty() {
@@ -454,7 +457,7 @@ fn fix_newlines(text: String) -> String {
 
     REGEX_LEADING_SPACES
         .replace_all(&text, |captures: &Captures| {
-            "<br>".to_string() + &"&nbsp;".repeat(captures[1].len())
+            "<br>".to_string() + &"\u{00A0}".repeat(captures[1].len())
         })
         .to_string()
 }
