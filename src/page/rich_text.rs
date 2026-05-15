@@ -470,7 +470,14 @@ fn autolink_angle_url(escaped: &str) -> String {
 
 fn render_styled_span(style: StyleSet, text: String) -> String {
     if style.len() > 0 {
-        format!("<span style=\"{}\">{}</span>", style, text)
+        let tag = if style.is_bold() {
+            "strong"
+        } else if style.is_italic() {
+            "em"
+        } else {
+            "span"
+        };
+        format!("<{tag} style=\"{}\">{}</{tag}>", style, text)
     } else {
         text
     }

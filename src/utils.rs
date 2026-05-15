@@ -104,6 +104,20 @@ impl StyleSet {
     pub(crate) fn len(&self) -> usize {
         self.0.len()
     }
+
+    pub(crate) fn is_bold(&self) -> bool {
+        self.0
+            .get("font-weight")
+            .map(|weight| weight == "bold")
+            .unwrap_or(false)
+    }
+
+    pub(crate) fn is_italic(&self) -> bool {
+        self.0
+            .get("font-style")
+            .map(|style| style == "italic")
+            .unwrap_or(false)
+    }
 }
 
 impl Display for StyleSet {
