@@ -52,20 +52,18 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
                 match object {
                     EmbeddedObject::Ink(container) => {
                         ink_builder.push(container.ink(), container.bounding_box());
+                        result.push(ink_builder.finish());
                     }
                     EmbeddedObject::InkSpace(space) => {
-                        result.push(ink_builder.finish());
                         result.push(format!("<span class=\"ink-space\" style=\"padding-left: {}; padding-top: {};\"></span>",
                                 px(space.width()), px(space.height())));
                     }
                     EmbeddedObject::InkLineBreak => {
-                        result.push(ink_builder.finish());
                         result.push("<span class=\"ink-linebreak\"><br></span>".to_string());
                     }
                 }
             }
 
-            result.push(ink_builder.finish());
             return Ok(result.join(""));
         }
 
