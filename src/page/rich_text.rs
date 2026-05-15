@@ -495,7 +495,7 @@ fn fix_newlines(text: String) -> String {
 }
 
 fn font_with_fallback(font: &str) -> String {
-    if font == "Calibri Light" {
+    if font.starts_with("Calibri") {
         format!("\"{}\", sans-serif", font)
     } else {
         font.to_string()
