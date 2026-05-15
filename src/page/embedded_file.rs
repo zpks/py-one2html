@@ -1,5 +1,5 @@
 use crate::page::Renderer;
-use crate::utils::sanitize_output_filename;
+use crate::utils::{html_entities, sanitize_output_filename};
 use color_eyre::Result;
 use color_eyre::eyre::WrapErr;
 use onenote_parser::FileSystem;
@@ -19,10 +19,11 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
 
         let file_type = Self::guess_type(file);
 
+        let src = html_entities(&filename);
         let content = match file_type {
-            FileType::Audio => format!("<audio controls src=\"{}\"></audio>", filename),
-            FileType::Video => format!("<video controls src=\"{}\"></video>", filename),
-            FileType::Unknown => format!("<embed src=\"{}\" />", filename),
+            FileType::Audio => format!("<audio controls src=\"{}\"></audio>", src),
+            FileType::Video => format!("<video controls src=\"{}\"></video>", src),
+            FileType::Unknown => format!("<embed src=\"{}\" />", src),
         };
 
         Ok(self.render_with_note_tags(file.note_tags(), content))

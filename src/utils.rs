@@ -47,6 +47,17 @@ pub(crate) fn sanitize_output_filename(filename: &str) -> Result<String> {
     Ok(sanitized)
 }
 
+pub(crate) fn html_entities(text: &str) -> String {
+    // Match the "special chars" set: &, <, >, ", '. Anything user-controllable
+    // that flows into HTML markup (filenames, alt text, etc.) must go through
+    // here — `AttributeSet`'s `Display` does this automatically for values.
+    text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;")
+        .replace("'", "&apos;")
+}
+
 pub(crate) fn detect_png(header: &[u8]) -> bool {
     // PNGs start with a specific set of bytes. See https://en.wikipedia.org/wiki/PNG
     header.len() > 6
@@ -79,7 +90,7 @@ impl Display for AttributeSet {
             self.0
                 .iter()
                 .sorted_by(|(a, _), (b, _)| Ord::cmp(a, b))
-                .map(|(attr, value)| attr.to_string() + "=\"" + value + "\"")
+                .map(|(attr, value)| attr.to_string() + "=\"" + &html_entities(value) + "\"")
                 .join(" ")
         )
     }

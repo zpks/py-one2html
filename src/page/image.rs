@@ -25,7 +25,7 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
             attrs.set("src", filename);
 
             if let Some(text) = image.alt_text() {
-                attrs.set("alt", text.to_string().replace('"', "&quot;"));
+                attrs.set("alt", text.to_string());
             }
 
             if let Some(width) = image.layout_max_width() {
