@@ -21,55 +21,31 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v1
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # master
         with:
           toolchain: ${{ matrix.rust }}
-          override: true
-      - name: cargo fetch
-        uses: actions-rs/cargo@v1
-        with:
-          command: fetch
-      - name: cargo build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --tests ${{ matrix.args }}
-      - name: cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: ${{ matrix.args }}
+      - run: cargo fetch
+      - run: cargo build --tests ${{ matrix.args }}
+      - run: cargo test ${{ matrix.args }}
 
   cargo-deny:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
-      - uses: EmbarkStudios/cargo-deny-action@v2
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: EmbarkStudios/cargo-deny-action@6c8f9facfa5047ec02d8485b6bf52b587b7777d1 # v2
 
   publish_check:
     name: Publish check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # master
         with:
           toolchain: stable
-          override: true
-      - name: cargo fetch
-        uses: actions-rs/cargo@v1
-        with:
-          command: fetch
-      - name: cargo publish
-        uses: actions-rs/cargo@v1
-        with:
-          command: publish
-          args: --dry-run --no-default-features
-      - name: docs check
-        uses: actions-rs/cargo@v1
-        with:
-          command: doc
-          args: --no-deps --no-default-features
+      - run: cargo fetch
+      - run: cargo publish --dry-run --no-default-features
+      - run: cargo doc --no-deps --no-default-features
 
   publish:
     name: Publish
@@ -77,22 +53,14 @@ jobs:
     needs: [ test, cargo-deny, publish_check ]
     if: startsWith(github.ref, 'refs/tags/')
     steps:
-      - uses: actions/checkout@v1
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # master
         with:
           toolchain: stable
-          override: true
-      - name: cargo fetch
-        uses: actions-rs/cargo@v1
-        with:
-          command: fetch
-      - name: cargo publish
-        uses: actions-rs/cargo@v1
+      - run: cargo fetch
+      - run: cargo publish --no-default-features
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
-        with:
-          command: publish
-          args: --no-default-features
 
   build_artifacts:
     name: Build artifacts
@@ -119,17 +87,12 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v1
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # master
         with:
           toolchain: stable
-          target: ${{ matrix.target }}
-          override: true
-      - name: cargo build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --target ${{ matrix.target }} ${{ matrix.args }}
+          targets: ${{ matrix.target }}
+      - run: cargo build --release --target ${{ matrix.target }} ${{ matrix.args }}
       - name: Package (unix)
         if: runner.os != 'Windows'
         run: |
@@ -152,7 +115,7 @@ jobs:
           $hash = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLower()
           "$hash  $archive" | Out-File -FilePath "$archive.sha256" -Encoding ascii
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: one2html-${{ matrix.target }}
           path: |
@@ -168,58 +131,17 @@ jobs:
       contents: write
       actions: read
     steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Extract release notes
-        run: |
-          set -euo pipefail
-          tag="${{ github.ref_name }}"
-          python3 - <<'PY'
-          import re
-          import sys
-
-          tag = "${{ github.ref_name }}"
-          found = False
-          lines = []
-          with open("CHANGELOG.md", "r", encoding="utf-8") as fh:
-              for raw in fh:
-                  line = raw.rstrip("\n")
-                  if line.startswith("## ["):
-                      if found:
-                          break
-                      if line.startswith(f"## [{tag}"):
-                          found = True
-                          continue
-                  if found:
-                      lines.append(line)
-
-          if not lines:
-              print(f"No changelog entry found for {tag}.", file=sys.stderr)
-              sys.exit(1)
-
-          out = []
-          prev = ""
-          for line in lines:
-              if not line.strip():
-                  out.append("")
-                  prev = ""
-                  continue
-              is_heading = line.startswith("#")
-              is_list = re.match(r"^(\s*[-*]|\s*\d+\.)\s+", line) is not None
-              is_cont = prev and prev.lstrip().startswith(("-", "*")) and line.startswith("  ")
-              if prev and not is_heading and not is_list and not is_cont:
-                  out[-1] = out[-1].rstrip() + " " + line.strip()
-              else:
-                  out.append(line)
-              prev = line
-
-          with open("release-notes.md", "w", encoding="utf-8") as fh:
-              fh.write("\n".join(out).rstrip() + "\n")
-          PY
-      - uses: actions/download-artifact@v4
+        uses: ffurrer2/extract-release-notes@273da39a24fb7db106a35526c8162815faffd31d # v3
+        with:
+          release_notes_file: release-notes.md
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           path: release-assets
           merge-multiple: true
       - name: Upload release assets
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
