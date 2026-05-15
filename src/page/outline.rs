@@ -90,13 +90,7 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
 
         self.in_list = is_list_item;
 
-        contents.extend(
-            element
-                .contents()
-                .iter()
-                .map(|content| self.render_content(content))
-                .collect::<Result<Vec<_>, _>>()?,
-        );
+        contents.push_str(&self.render_contents(element.contents())?);
 
         self.in_list = false;
 

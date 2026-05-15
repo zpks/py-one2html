@@ -1,4 +1,5 @@
 use crate::page::Renderer;
+use crate::page::ink::InkBuilder;
 use crate::utils::{AttributeSet, StyleSet, px};
 use color_eyre::Result;
 use color_eyre::eyre::WrapErr;
@@ -44,23 +45,28 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
 
     fn parse_content(&mut self, data: &RichText) -> Result<String> {
         if !data.embedded_objects().is_empty() {
-            return Ok(data
-                .embedded_objects()
-                .iter()
-                .map(|object| match object {
+            let mut result = vec![];
+            let mut ink_builder = InkBuilder::new(true);
+
+            for object in data.embedded_objects() {
+                match object {
                     EmbeddedObject::Ink(container) => {
-                        self.render_ink(container.ink(), container.bounding_box(), true)
+                        ink_builder.push(container.ink(), container.bounding_box());
                     }
                     EmbeddedObject::InkSpace(space) => {
-                        format!("<span class=\"ink-space\" style=\"padding-left: {}; padding-top: {};\"></span>",
-                                px(space.width()), px(space.height()))
+                        result.push(ink_builder.finish());
+                        result.push(format!("<span class=\"ink-space\" style=\"padding-left: {}; padding-top: {};\"></span>",
+                                px(space.width()), px(space.height())));
                     }
                     EmbeddedObject::InkLineBreak => {
-                        "<span class=\"ink-linebreak\"><br></span>".to_string()
+                        result.push(ink_builder.finish());
+                        result.push("<span class=\"ink-linebreak\"><br></span>".to_string());
                     }
-                })
-                .collect_vec()
-                .join(""));
+                }
+            }
+
+            result.push(ink_builder.finish());
+            return Ok(result.join(""));
         }
 
         let indices = data.text_run_indices();
