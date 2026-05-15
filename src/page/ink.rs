@@ -37,6 +37,10 @@ impl InkBuilder {
     }
 
     pub(crate) fn push(&mut self, ink: &Ink, display_bounding_box: Option<&InkBoundingBox>) {
+        for child in ink.child_groups() {
+            self.push(child, ink.bounding_box().as_ref().or(display_bounding_box));
+        }
+
         let strokes = ink.ink_strokes();
         if strokes.is_empty() {
             return;
