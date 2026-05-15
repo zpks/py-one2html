@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [v1.3.1 - 2026-05-15]
+## [1.3.1] - 2026-05-15
 
 ### Fixed
 
@@ -23,13 +23,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   guards against transaction-log offset under-/overflow, and avoids panics
   on malformed ink data.
 
-## [v1.3.0 - 2025-12-30]
+## [1.3.0] - 2025-12-30
 
 ### Added
 
 - Render math text content.
 
-## [v1.2.0 - 2025-12-28]
+## [1.2.0] - 2025-12-28
 
 ### Changed
 
@@ -43,13 +43,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Correct outline width calculation.
 - Correct ink stroke opacity rendering.
 
-## [v1.1.2 - 2021-05-29]
+## [1.1.2] - 2021-05-29
 
 ### Changed
 
 - Internal: Updated dependencies.
 
-## [v1.1.0 - 2021-05-21]
+## [1.1.0] - 2021-05-21
 
 ### Added
 
