@@ -374,7 +374,7 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
         }
 
         if let Some(font) = style.font() {
-            styles.set("font-family", font.to_string());
+            styles.set("font-family", font_with_fallback(font));
         }
 
         if let Some(size) = style.font_size() {
@@ -492,4 +492,12 @@ fn fix_newlines(text: String) -> String {
             "<br>".to_string() + &"\u{00A0}".repeat(captures[1].len())
         })
         .to_string()
+}
+
+fn font_with_fallback(font: &str) -> String {
+    if font == "Calibri Light" {
+        format!("\"{}\", sans-serif", font)
+    } else {
+        font.to_string()
+    }
 }
