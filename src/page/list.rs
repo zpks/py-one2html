@@ -42,17 +42,19 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
 
             // Open the appropriate list if needed.
             if current.is_none()
-                && let Some(kind) = wanted {
-                    let (start, end) = match kind {
-                        ListKind::Bullet => self.list_tags(element),
-                        ListKind::Tagged => {
-                            ("<ul class=\"tagged-list\">".to_string(), "</ul>".to_string())
-                        }
-                    };
-                    contents.push_str(&start);
-                    list_end = Some(end);
-                    current = Some(kind);
-                }
+                && let Some(kind) = wanted
+            {
+                let (start, end) = match kind {
+                    ListKind::Bullet => self.list_tags(element),
+                    ListKind::Tagged => (
+                        "<ul class=\"tagged-list\">".to_string(),
+                        "</ul>".to_string(),
+                    ),
+                };
+                contents.push_str(&start);
+                list_end = Some(end);
+                current = Some(kind);
+            }
 
             contents.push_str(&self.render_outline_element(
                 element,

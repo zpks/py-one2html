@@ -58,11 +58,7 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
         Ok(self.render_with_note_tags(image.note_tags(), content))
     }
 
-    fn determine_image_filename(
-        &mut self,
-        image: &Image,
-        initial_bytes: &[u8],
-    ) -> Result<String> {
+    fn determine_image_filename(&mut self, image: &Image, initial_bytes: &[u8]) -> Result<String> {
         if let Some(name) = image.image_filename() {
             // Workaround: PDF printout pages are PNG images, but have an image_filename
             // with extension .PDF. Add a PNG extension to these files so that they are

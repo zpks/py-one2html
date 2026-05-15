@@ -131,9 +131,7 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
         let math_groups = content
             .into_iter()
             .zip(styles.iter().map(Some).chain(repeat(None)))
-            .chunk_by(|(_text, style)| {
-                style.map(|s| s.math_formatting()).unwrap_or(false)
-            });
+            .chunk_by(|(_text, style)| style.map(|s| s.math_formatting()).unwrap_or(false));
 
         let mut math_object_offset = 0;
 
@@ -292,7 +290,6 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
             .map(|text| String::from_utf16(&text).wrap_err("Failed to parse rich text contents"))
             .collect::<Result<Vec<_>>>()
     }
-
 
     fn parse_paragraph_styles(&self, text: &RichText) -> StyleSet {
         if !text.embedded_objects().is_empty() {
@@ -458,9 +455,8 @@ fn html_escape(text: &str) -> String {
 /// on text that has already been HTML-escaped (so the angle brackets are
 /// `&lt;`/`&gt;` and any `&` inside the URL is `&amp;`).
 fn autolink_angle_url(escaped: &str) -> String {
-    static RE: Lazy<Regex> = Lazy::new(|| {
-        Regex::new(r"&lt;(https?://\S+?)&gt;").expect("invalid auto-link regex")
-    });
+    static RE: Lazy<Regex> =
+        Lazy::new(|| Regex::new(r"&lt;(https?://\S+?)&gt;").expect("invalid auto-link regex"));
 
     RE.replace_all(escaped, |caps: &Captures| {
         format!("&lt;<a href=\"{0}\">{0}</a>&gt;", &caps[1])
