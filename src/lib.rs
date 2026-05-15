@@ -18,6 +18,8 @@ pub struct Options {
     pub warnings: bool,
 
     pub math_target: MathTarget,
+
+    pub note_tag_icons: NoteTagIcons,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -27,6 +29,19 @@ pub enum MathTarget {
     #[default]
     MathML,
     LaTeX,
+}
+
+/// How to render OneNote note-tag icons.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "bin", derive(clap::ValueEnum))]
+#[cfg_attr(feature = "bin", value(rename_all = "lower"))]
+pub enum NoteTagIcons {
+    /// Inline SVG icons (default). Sharper and platform-independent in pure HTML output.
+    #[default]
+    Svg,
+    /// Unicode emoji. Useful when the HTML is post-processed into Markdown, since emoji
+    /// survive the conversion as text whereas inline SVGs do not.
+    Emoji,
 }
 
 pub fn convert(

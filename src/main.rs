@@ -3,7 +3,7 @@
 use clap::Parser;
 use color_eyre::eyre::Result;
 use log::LevelFilter;
-use one2html::MathTarget;
+use one2html::{MathTarget, NoteTagIcons};
 use simplelog::{ColorChoice, CombinedLogger, Config, TermLogger, TerminalMode};
 use std::path::PathBuf;
 use std::process::exit;
@@ -26,6 +26,10 @@ pub(crate) struct Opt {
     /// How to render math equations
     #[arg(long, default_value = "mathml")]
     pub(crate) math_target: MathTarget,
+
+    /// How to render OneNote note-tag icons
+    #[arg(long, default_value = "svg")]
+    pub(crate) note_tag_icons: NoteTagIcons,
 }
 
 #[cfg(feature = "backtrace")]
@@ -78,6 +82,7 @@ fn _main() -> Result<()> {
             one2html::Options {
                 warnings: opt.warnings,
                 math_target: opt.math_target,
+                note_tag_icons: opt.note_tag_icons,
             },
             onenote_parser::fs::NativeFs {},
         )?;

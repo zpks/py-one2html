@@ -13,10 +13,28 @@
     .container-outline { font-family: Calibri, sans-serif; font-size: 6pt; }
     .ink-text, .ink-space { display: inline-block; position: relative; vertical-align: bottom; }
     .ink-text { top: 0; left: 0; }
-    .note-tag-icon { position: relative; }
-    .note-tag-icon > svg { position: absolute; }
-    .icon-secondary > svg { position: absolute; fill: black; filter: drop-shadow(0 0 2px white); height: 12px; top: -1px; }
-    .icon-secondary > .content { position: absolute; color: black; filter: drop-shadow(0 0 2px white); font-size: 10px; color: black; top: -1px; user-select: none; }
+    .note-tag-icon {
+        position: relative;
+        --note-tag-left: -23px;
+        --note-tag-font-size: 16px;
+    }
+    .note-tag-icon.-large { --note-tag-left: -25px; --note-tag-font-size: 20px; }
+    .note-tag-icon > svg, .note-tag-icon > img { position: absolute; }
+    .note-tag-icon > .text {
+        position: absolute;
+        left: var(--note-tag-left);
+        font-size: var(--note-tag-font-size);
+    }
+    .note-tag-icon.-checkbox > .text { bottom: -0.2em; }
+    .icon-secondary > svg, .icon-secondary > img, .icon-secondary > .content {
+        position: absolute;
+        fill: black;
+        color: black;
+        filter: drop-shadow(0 0 2px white);
+        height: 12px;
+        top: -1px;
+    }
+    .icon-secondary > .content { height: auto; font-size: 10px; user-select: none; }
     /*** End default CSS ***/
 
     {% for entry in global_styles -%}
