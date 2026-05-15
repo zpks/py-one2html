@@ -8,7 +8,7 @@ use onenote_parser::contents::Content;
 impl<'a, FS: FileSystem> Renderer<'a, FS> {
     pub(crate) fn render_contents(&mut self, contents: &[Content]) -> Result<String> {
         let mut result = vec![];
-        let mut ink_builder = InkBuilder::new(false);
+        let mut ink_builder = InkBuilder::new(true);
 
         for content in contents {
             if !matches!(content, Content::Ink(_)) {
