@@ -1,6 +1,6 @@
 use crate::page::Renderer;
 use crate::utils::sanitize_output_filename;
-use crate::utils::{AttributeSet, StyleSet, px};
+use crate::utils::{AttributeSet, StyleSet, detect_png, px};
 use color_eyre::Result;
 use color_eyre::eyre::WrapErr;
 use onenote_parser::FileSystem;
@@ -11,7 +11,7 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
         let mut content = String::new();
 
         if let Some(data) = image.data() {
-            let filename = self.determine_image_filename(image)?;
+            let filename = self.determine_image_filename(image, data)?;
 
             let target_file = self.output.join(filename.clone());
 
@@ -58,8 +58,27 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
         Ok(self.render_with_note_tags(image.note_tags(), content))
     }
 
-    fn determine_image_filename(&mut self, image: &Image) -> Result<String> {
+    fn determine_image_filename(
+        &mut self,
+        image: &Image,
+        initial_bytes: &[u8],
+    ) -> Result<String> {
         if let Some(name) = image.image_filename() {
+            // Workaround: PDF printout pages are PNG images, but have an image_filename
+            // with extension .PDF. Add a PNG extension to these files so that they are
+            // imported properly.
+            let is_pdf = std::path::Path::new(name)
+                .extension()
+                .map(|ext| ext.eq_ignore_ascii_case("pdf"))
+                .unwrap_or(false);
+            let owned;
+            let name: &str = if is_pdf && detect_png(initial_bytes) {
+                owned = format!("{name}.png");
+                &owned
+            } else {
+                name
+            };
+
             let sanitized = sanitize_output_filename(name)?;
             return self.determine_filename(&sanitized);
         }
