@@ -1,4 +1,5 @@
 use crate::page::ink::InkBuilder;
+use crate::templates::page::PageTimestamps;
 use crate::utils::StyleSet;
 use crate::{Options, section};
 use color_eyre::Result;
@@ -79,7 +80,16 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
         let page_content = self.render_page_contents(page.contents())?;
         content.push_str(&page_content);
 
-        crate::templates::page::render(title_text, &content, &self.global_styles, self.options)
+        crate::templates::page::render(
+            title_text,
+            &PageTimestamps {
+                created_time: page.created_time().unix_timestamp(),
+                updated_time: page.updated_time().unix_timestamp(),
+            },
+            &content,
+            &self.global_styles,
+            self.options,
+        )
     }
 
     pub(crate) fn gen_class(&mut self, prefix: &str) -> String {
