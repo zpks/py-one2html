@@ -574,7 +574,7 @@ dependencies = [
  "percent-encoding",
  "phf 0.13.1",
  "regex",
- "sanitize-filename",
+ "sanitise-file-name",
  "simplelog",
  "unicode-blocks",
 ]
@@ -593,6 +593,7 @@ dependencies = [
  "parser-macros",
  "sanitise-file-name",
  "thiserror",
+ "time",
  "uuid",
  "widestring",
 ]
@@ -830,15 +831,6 @@ name = "sanitise-file-name"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19d36299972b96b8ae7e8f04ecbf75fb41a27bf3781af00abcf57609774cb911"
-
-[[package]]
-name = "sanitize-filename"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc984f4f9ceb736a7bb755c3e3bd17dc56370af2600c9780dcc48c66453da34d"
-dependencies = [
- "regex",
-]
 
 [[package]]
 name = "serde"

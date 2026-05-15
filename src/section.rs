@@ -26,7 +26,7 @@ impl Renderer {
         options: Options,
         fs: impl FileSystem,
     ) -> Result<PathBuf> {
-        let section_dir = output_dir.join(sanitize_filename::sanitize(section.display_name()));
+        let section_dir = output_dir.join(sanitise_file_name::sanitise(section.display_name()));
 
         fs.make_dir(section_dir.as_path())?;
 
@@ -43,7 +43,7 @@ impl Renderer {
 
                 let file_name = title.trim().replace("/", "_");
                 let file_name = self.determine_page_filename(&file_name)?;
-                let file_name = sanitize_filename::sanitize(file_name + ".html");
+                let file_name = sanitise_file_name::sanitise(&(file_name + ".html"));
 
                 let output_file = section_dir.join(file_name);
 
@@ -67,7 +67,7 @@ impl Renderer {
         let warnings = section.report().warnings();
         if options.warnings && !warnings.is_empty() {
             let stem = self.determine_page_filename("Warnings")?;
-            let filename = sanitize_filename::sanitize(stem + ".html");
+            let filename = sanitise_file_name::sanitise(&(stem + ".html"));
             let warnings_path = section_dir.join(&filename);
 
             let warning_entries: Vec<templates::warnings::Entry> = warnings
@@ -106,7 +106,7 @@ impl Renderer {
 
     pub(crate) fn determine_page_filename(&mut self, filename: &str) -> Result<String> {
         let mut i = 0;
-        let mut current_filename = sanitize_filename::sanitize(filename);
+        let mut current_filename = sanitise_file_name::sanitise(filename);
 
         loop {
             if !self.pages.contains(&current_filename) {
