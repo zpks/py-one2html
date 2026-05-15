@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.3.1 - 2026-05-15]
+
+### Fixed
+
+- Prevent path traversal when writing embedded files to disk
+  ([GHSA-gcmj-c9gg-9vh6](https://github.com/msiemens/one2html/security/advisories/GHSA-gcmj-c9gg-9vh6) /
+  CVE-2026-22810).
+- Log warnings instead of panicking on unsupported constructs in image,
+  list, note tag, and rich text rendering.
+
+### Changed
+
+- Update `onenote_parser` to 1.1.1, which adds path-traversal hardening for
+  `.onetoc2` section entries
+  ([GHSA-4j5m-wc25-pvh7](https://github.com/msiemens/onenote.rs/security/advisories/GHSA-4j5m-wc25-pvh7)),
+  guards against transaction-log offset under-/overflow, and avoids panics
+  on malformed ink data.
+
 ## [v1.3.0 - 2025-12-30]
 
 ### Added
