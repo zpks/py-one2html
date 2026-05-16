@@ -2,7 +2,6 @@ use crate::templates::notebook::Toc;
 use crate::utils::sanitize_output_filename;
 use crate::{Options, section, templates};
 use color_eyre::eyre::Result;
-use log::warn;
 use onenote_parser::FileSystem;
 use onenote_parser::notebook::Notebook;
 use onenote_parser::property::common::Color;
@@ -37,46 +36,7 @@ impl Renderer {
         let mut toc = Vec::new();
 
         for entry in notebook.entries() {
-            match entry {
-                SectionEntry::Section(section) => {
-                    toc.push(Toc::Section(self.render_section(
-                        section,
-                        &notebook_dir,
-                        output_dir,
-                        options,
-                        fs,
-                    )?));
-                }
-                SectionEntry::SectionGroup(group) => {
-                    let dir_name = sanitise_file_name::sanitise(group.display_name());
-                    let group_dir = notebook_dir.join(dir_name);
-
-                    fs.make_dir(group_dir.as_path())?;
-
-                    let mut entries = Vec::new();
-
-                    for entry in group.entries() {
-                        match entry {
-                            SectionEntry::Section(section) => {
-                                entries.push(self.render_section(
-                                    section, &group_dir, output_dir, options, fs,
-                                )?);
-                            }
-                            SectionEntry::SectionGroup(nested) => {
-                                // Nested section groups are not yet rendered into the TOC tree
-                                // (the `Toc` enum is flat). Skip with a warning so the rest of
-                                // the notebook still imports.
-                                warn!(
-                                    "Skipping nested section group '{}' (nested groups not yet supported)",
-                                    nested.display_name()
-                                );
-                            }
-                        }
-                    }
-
-                    toc.push(Toc::SectionGroup(group.display_name().to_string(), entries))
-                }
-            }
+            self.walk_entry(entry, &notebook_dir, output_dir, 0, options, fs, &mut toc)?;
         }
 
         let toc_html = templates::notebook::render(name, &toc)?;
@@ -85,6 +45,42 @@ impl Renderer {
 
         fs.write_file(toc_file.as_path(), toc_html.as_bytes())?;
 
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn walk_entry(
+        &mut self,
+        entry: &SectionEntry,
+        parent_dir: &Path,
+        base_dir: &Path,
+        depth: u32,
+        options: Options,
+        fs: impl FileSystem,
+        toc: &mut Vec<Toc>,
+    ) -> Result<()> {
+        match entry {
+            SectionEntry::Section(section) => {
+                let rendered = self.render_section(section, parent_dir, base_dir, options, fs)?;
+                toc.push(Toc::Section {
+                    section: rendered,
+                    depth,
+                });
+            }
+            SectionEntry::SectionGroup(group) => {
+                let group_dir = parent_dir.join(sanitise_file_name::sanitise(group.display_name()));
+                fs.make_dir(group_dir.as_path())?;
+
+                toc.push(Toc::GroupHeader {
+                    name: group.display_name().to_string(),
+                    depth,
+                });
+
+                for child in group.entries() {
+                    self.walk_entry(child, &group_dir, base_dir, depth + 1, options, fs, toc)?;
+                }
+            }
+        }
         Ok(())
     }
 

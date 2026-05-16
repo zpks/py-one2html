@@ -2,13 +2,13 @@
 
 {% block title %}{{ name }}{% endblock %}
 
-{% macro render(section, grouped) %}
-    <li {% match section.color -%}
-        {%- when Some with (color) -%}
-        style="border-left-color: rgba({{ color.color.red }}, {{ color.color.green }}, {{ color.color.blue }}, {{ color.alpha }}); {% if grouped %} margin-left: 20px; {% endif %}"
-        {%- when None -%}
+{% macro render(section, depth) %}
+    <li style="margin-left: {{ depth }}rem;
+        {%- match section.color -%}
+            {%- when Some with (color) %} border-left-color: rgba({{ color.color.red }}, {{ color.color.green }}, {{ color.color.blue }}, {{ color.alpha }});
+            {%- when None -%}
         {%- endmatch -%}
-    >
+    ">
         <a href="{{ section.path|encode }}.html" target="section" title="{{ section.name }}">{{ section.name }}</a>
     </li>
 {% endmacro %}
@@ -18,13 +18,10 @@
     <ul>
         {% for entry in toc -%}
             {% match entry %}
-                {%- when Toc::Section with (section) -%}
-                    {% call render(section, false) %}{% endcall %}
-                {%- when Toc::SectionGroup with (name, entries) -%}
-                    <li>{{ name }}</li>
-                    {% for section in entries %}
-                        {% call render(section, true) %}{% endcall %}
-                    {% endfor %}
+                {%- when Toc::Section { section, depth } -%}
+                    {% call render(section, depth) %}{% endcall %}
+                {%- when Toc::GroupHeader { name, depth } -%}
+                    <li class="group" style="margin-left: {{ depth }}rem;">{{ name }}</li>
             {%- endmatch -%}
         {% endfor %}
     </ul>
