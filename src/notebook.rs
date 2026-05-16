@@ -1,7 +1,8 @@
 use crate::templates::notebook::Toc;
 use crate::utils::sanitize_output_filename;
 use crate::{Options, section, templates};
-use color_eyre::eyre::{Result, eyre};
+use color_eyre::eyre::Result;
+use log::warn;
 use onenote_parser::FileSystem;
 use onenote_parser::notebook::Notebook;
 use onenote_parser::property::common::Color;
@@ -55,12 +56,21 @@ impl Renderer {
                     let mut entries = Vec::new();
 
                     for entry in group.entries() {
-                        if let SectionEntry::Section(section) = entry {
-                            entries.push(
-                                self.render_section(section, &group_dir, output_dir, options, fs)?,
-                            );
-                        } else {
-                            return Err(eyre!("Nested section groups are not yet supported"));
+                        match entry {
+                            SectionEntry::Section(section) => {
+                                entries.push(self.render_section(
+                                    section, &group_dir, output_dir, options, fs,
+                                )?);
+                            }
+                            SectionEntry::SectionGroup(nested) => {
+                                // Nested section groups are not yet rendered into the TOC tree
+                                // (the `Toc` enum is flat). Skip with a warning so the rest of
+                                // the notebook still imports.
+                                warn!(
+                                    "Skipping nested section group '{}' (nested groups not yet supported)",
+                                    nested.display_name()
+                                );
+                            }
                         }
                     }
 
