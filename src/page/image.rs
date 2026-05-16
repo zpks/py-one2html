@@ -5,18 +5,24 @@ use color_eyre::Result;
 use color_eyre::eyre::WrapErr;
 use onenote_parser::FileSystem;
 use onenote_parser::contents::Image;
+use std::io::{Cursor, Read};
 
 impl<'a, FS: FileSystem> Renderer<'a, FS> {
     pub(crate) fn render_image(&mut self, image: &Image) -> Result<String> {
         let mut content = String::new();
 
-        if let Some(data) = image.data() {
-            let filename = self.determine_image_filename(image, data)?;
+        if let Some(mut reader) = image.read() {
+            // Read enough of a prefix that `determine_image_filename` can run
+            // file-type detection without materialising the whole image.
+            let image_start_bytes = read_file_start(&mut reader)?;
+            let filename = self.determine_image_filename(image, &image_start_bytes)?;
 
             let target_file = self.output.join(filename.clone());
 
+            // Re-prepend the sniffed bytes so the file we write out is complete.
+            let mut reader = Cursor::new(image_start_bytes).chain(reader);
             self.fs
-                .write_file(target_file.as_path(), data)
+                .stream_to_file(target_file.as_path(), &mut reader)
                 .wrap_err("Failed to write image")?;
 
             let mut attrs = AttributeSet::new();
@@ -109,4 +115,14 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
             i += 1;
         }
     }
+}
+
+fn read_file_start(reader: &mut Box<dyn Read>) -> Result<Vec<u8>> {
+    const SIZE: usize = 1024;
+    let mut sub_reader = reader.by_ref().take(SIZE as u64);
+    let mut bytes = Vec::with_capacity(SIZE);
+    sub_reader
+        .read_to_end(&mut bytes)
+        .wrap_err("Failed to read image prefix")?;
+    Ok(bytes)
 }
