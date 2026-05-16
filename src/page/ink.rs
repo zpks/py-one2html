@@ -177,8 +177,10 @@ impl InkBuilder {
             span_styles.set("height", format!("{}px", display_size.1));
 
             format!(
-                "<span style=\"{}\" class=\"ink-text\"><svg {}>{}</svg></span>",
-                span_styles, attrs, path
+                "<span {} class=\"ink-text\"><svg {}>{}</svg></span>",
+                span_styles.to_html_attr(),
+                attrs,
+                path
             )
         } else {
             format!("<svg {}>{}</svg>", attrs, path)

@@ -118,7 +118,7 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
     ) -> String {
         if let Some((markup, styles)) = self.render_note_tags(note_tags) {
             let mut contents = String::new();
-            contents.push_str(&format!("<div style=\"{}\">{}", styles, markup));
+            contents.push_str(&format!("<div {}>{}", styles.to_html_attr(), markup));
             contents.push_str(&content);
             contents.push_str("</div>");
 

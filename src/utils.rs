@@ -129,6 +129,14 @@ impl StyleSet {
             .map(|style| style == "italic")
             .unwrap_or(false)
     }
+
+    /// Render this style set as the `style="..."` attribute, with the value
+    /// HTML-escaped. Use this when embedding the styles inside an element's
+    /// attributes; `Display` itself produces raw CSS and is unsafe to drop
+    /// straight into an attribute value.
+    pub(crate) fn to_html_attr(&self) -> String {
+        format!("style=\"{}\"", html_entities(&self.to_string()))
+    }
 }
 
 impl Display for StyleSet {

@@ -1,6 +1,6 @@
 use crate::page::Renderer;
 use crate::page::ink::InkBuilder;
-use crate::utils::{AttributeSet, StyleSet, px};
+use crate::utils::{AttributeSet, StyleSet, html_entities, px};
 use color_eyre::Result;
 use color_eyre::eyre::WrapErr;
 use itertools::Itertools;
@@ -38,7 +38,9 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
             Some(t) if !self.in_list && is_tag(t) => {
                 Ok(format!("<{} {}>{}</{}>", t, attrs, content, t))
             }
-            _ if style.len() > 0 => Ok(format!("<span style=\"{}\">{}</span>", style, content)),
+            _ if style.len() > 0 => {
+                Ok(format!("<span {}>{}</span>", style.to_html_attr(), content))
+            }
             _ => Ok(content),
         }
     }
@@ -221,8 +223,10 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
                     let escaped = html_escape(&text);
                     return Ok(match pending_url {
                         Some(url) => format!(
-                            "<a href=\"{}\" style=\"{}\">{}</a>",
-                            url, parsed_style, escaped
+                            "<a href=\"{}\" {}>{}</a>",
+                            html_entities(&url),
+                            parsed_style.to_html_attr(),
+                            escaped
                         ),
                         None => {
                             warn!(
@@ -245,9 +249,9 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
                     let url = text.trim_end();
                     let trailing = &text[url.len()..];
                     return Ok(format!(
-                        "<a href=\"{}\" style=\"{}\">{}</a>{}",
-                        url,
-                        parsed_style,
+                        "<a href=\"{}\" {}>{}</a>{}",
+                        html_entities(url),
+                        parsed_style.to_html_attr(),
                         html_escape(url),
                         html_escape(trailing)
                     ));
@@ -473,7 +477,7 @@ fn render_styled_span(style: StyleSet, text: String) -> String {
         } else {
             "span"
         };
-        format!("<{tag} style=\"{}\">{}</{tag}>", style, text)
+        format!("<{tag} {}>{}</{tag}>", style.to_html_attr(), text)
     } else {
         text
     }
