@@ -616,7 +616,7 @@ dependencies = [
 [[package]]
 name = "onenote_parser"
 version = "1.1.0"
-source = "git+https://github.com/msiemens/onenote.rs?branch=joplin-merge#99794ab7d4b3da4f8af5403a1dbf8d7cf090c9ad"
+source = "git+https://github.com/msiemens/onenote.rs?branch=joplin-merge#c0a60aefff7a8e428bd7e35edff78a3c9fe5a998"
 dependencies = [
  "bytes",
  "cab",
@@ -667,7 +667,7 @@ dependencies = [
 [[package]]
 name = "parser-macros"
 version = "0.0.0"
-source = "git+https://github.com/msiemens/onenote.rs?branch=joplin-merge#99794ab7d4b3da4f8af5403a1dbf8d7cf090c9ad"
+source = "git+https://github.com/msiemens/onenote.rs?branch=joplin-merge#c0a60aefff7a8e428bd7e35edff78a3c9fe5a998"
 dependencies = [
  "proc-macro2",
  "quote",
