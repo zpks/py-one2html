@@ -33,7 +33,7 @@ pub(crate) fn render(
 ) -> Result<String> {
     PageTemplate {
         page_id_attr: &html_entities(page_id),
-        name,
+        name: &html_entities(name),
         content,
         global_styles: global_styles
             .iter()
