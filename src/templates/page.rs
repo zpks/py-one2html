@@ -1,5 +1,5 @@
 use crate::Options;
-use crate::utils::StyleSet;
+use crate::utils::{StyleSet, html_entities};
 use askama::Template;
 use color_eyre::Result;
 use color_eyre::eyre::WrapErr;
@@ -14,6 +14,7 @@ pub(crate) struct PageTimestamps {
 #[derive(Template)]
 #[template(path = "page.html", escape = "none")]
 struct PageTemplate<'a> {
+    page_id_attr: &'a str,
     name: &'a str,
     content: &'a str,
     global_styles: Vec<(&'a String, &'a StyleSet)>,
@@ -23,6 +24,7 @@ struct PageTemplate<'a> {
 }
 
 pub(crate) fn render(
+    page_id: &str,
     name: &str,
     timestamps: &PageTimestamps,
     content: &str,
@@ -30,6 +32,7 @@ pub(crate) fn render(
     options: Options,
 ) -> Result<String> {
     PageTemplate {
+        page_id_attr: &html_entities(page_id),
         name,
         content,
         global_styles: global_styles

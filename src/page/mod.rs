@@ -81,6 +81,7 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
         content.push_str(&page_content);
 
         crate::templates::page::render(
+            page.link_target_id(),
             title_text,
             &PageTimestamps {
                 created_time: page.created_time().unix_timestamp(),
