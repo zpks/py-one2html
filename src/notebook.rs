@@ -40,7 +40,7 @@ impl Renderer {
         }
 
         let toc_html = templates::notebook::render(name, &toc)?;
-        let toc_name = sanitize_output_filename(name)? + ".html";
+        let toc_name = sanitize_output_filename(name, fs)? + ".html";
         let toc_file = output_dir.join(toc_name);
 
         fs.write_file(toc_file.as_path(), toc_html.as_bytes())?;

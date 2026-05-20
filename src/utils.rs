@@ -1,5 +1,6 @@
 use color_eyre::eyre::{Result, eyre};
 use itertools::Itertools;
+use onenote_parser::FileSystem;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
@@ -33,12 +34,18 @@ pub(crate) fn px(inches: f32) -> String {
     format!("{}px", (inches * 48.0).round())
 }
 
-pub(crate) fn sanitize_output_filename(filename: &str) -> Result<String> {
+pub(crate) fn sanitize_output_filename(filename: &str, fs: impl FileSystem) -> Result<String> {
     let basename = Path::new(filename)
         .file_name()
         .and_then(|name| name.to_str())
         .ok_or_else(|| eyre!("Output filename has no valid basename"))?;
-    let sanitized = sanitize_filename::sanitize(basename);
+    let sanitized = sanitize_filename::sanitize_with_options(
+        basename,
+        sanitize_filename::Options {
+            windows: fs.is_windows(),
+            ..Default::default()
+        },
+    );
 
     if sanitized.is_empty() {
         return Err(eyre!("Output filename is empty after sanitization"));

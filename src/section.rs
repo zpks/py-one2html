@@ -96,7 +96,7 @@ impl Renderer {
         }
 
         let toc_html = templates::section::render(section.display_name(), &entries)?;
-        let toc_name = sanitize_output_filename(section.display_name())? + ".html";
+        let toc_name = sanitize_output_filename(section.display_name(), fs)? + ".html";
         let toc_file = output_dir.join(toc_name);
 
         fs.write_file(toc_file.as_path(), toc_html.as_bytes())?;

@@ -53,7 +53,7 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
 
     pub(crate) fn determine_filename(&mut self, filename: &str) -> Result<String> {
         let mut i = 0;
-        let sanitized = sanitize_output_filename(filename)?;
+        let sanitized = sanitize_output_filename(filename, self.fs)?;
         let mut current_filename = sanitized.clone();
 
         loop {

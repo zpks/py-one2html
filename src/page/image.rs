@@ -81,7 +81,7 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
                 name
             };
 
-            let sanitized = sanitize_output_filename(name)?;
+            let sanitized = sanitize_output_filename(name, self.fs)?;
             return self.determine_filename(&sanitized);
         }
 
