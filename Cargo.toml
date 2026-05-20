@@ -24,7 +24,7 @@ native-fs = ["onenote_parser/native-fs"]
 onepkg = ["onenote_parser/onepkg"]
 
 [dependencies]
-askama = "0.15"
+askama = "0.16"
 color-eyre = "0.6"
 console = { version = "0.16", optional = true }
 indicatif = { version = "0.18", optional = true }
