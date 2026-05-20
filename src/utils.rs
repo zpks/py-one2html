@@ -38,7 +38,7 @@ pub(crate) fn sanitize_output_filename(filename: &str) -> Result<String> {
         .file_name()
         .and_then(|name| name.to_str())
         .ok_or_else(|| eyre!("Output filename has no valid basename"))?;
-    let sanitized = sanitise_file_name::sanitise(basename);
+    let sanitized = sanitize_filename::sanitize(basename);
 
     if sanitized.is_empty() {
         return Err(eyre!("Output filename is empty after sanitization"));

@@ -29,7 +29,7 @@ impl Renderer {
     ) -> Result<()> {
         fs.make_dir(output_dir)?;
 
-        let notebook_dir = output_dir.join(sanitise_file_name::sanitise(name));
+        let notebook_dir = output_dir.join(sanitize_filename::sanitize(name));
 
         fs.make_dir(notebook_dir.as_path())?;
 
@@ -68,7 +68,7 @@ impl Renderer {
                 });
             }
             SectionEntry::SectionGroup(group) => {
-                let group_dir = parent_dir.join(sanitise_file_name::sanitise(group.display_name()));
+                let group_dir = parent_dir.join(sanitize_filename::sanitize(group.display_name()));
                 fs.make_dir(group_dir.as_path())?;
 
                 toc.push(Toc::GroupHeader {
