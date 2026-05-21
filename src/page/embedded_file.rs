@@ -5,7 +5,6 @@ use color_eyre::eyre::WrapErr;
 use onenote_parser::FileSystem;
 use onenote_parser::contents::EmbeddedFile;
 use onenote_parser::property::embedded_file::FileType;
-use std::path::PathBuf;
 
 impl<'a, FS: FileSystem> Renderer<'a, FS> {
     pub(crate) fn render_embedded_file(&mut self, file: &EmbeddedFile) -> Result<String> {
@@ -63,25 +62,117 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
                 return Ok(current_filename);
             }
 
-            let path = PathBuf::from(&sanitized);
-
-            let ext = path
-                .extension()
-                .unwrap_or("bin".as_ref())
-                .to_string_lossy()
-                .to_string();
-
-            let path_str = path.as_os_str().to_string_lossy();
-
-            let base = path_str
-                .strip_suffix(&ext)
-                .map(|s| s.trim_matches('.'))
-                .unwrap_or(path_str.as_ref())
-                .to_string();
+            let (base, ext) = match sanitized.rsplit_once('.') {
+                Some((base, ext)) if !base.is_empty() && !ext.is_empty() => (base, ext),
+                _ => (sanitized.trim_end_matches('.'), "bin"),
+            };
 
             current_filename = format!("{}-{}.{}", base, i, ext);
 
             i += 1;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Options;
+    use crate::page::Renderer;
+    use crate::section;
+    use onenote_parser::FileSystem;
+    use onenote_parser::fs::FileSource;
+    use std::io::Error;
+    use std::io::Read;
+    use std::sync::Arc;
+    use typed_path::{TypedPath, TypedPathBuf};
+
+    #[derive(Copy, Clone)]
+    struct StubFs {
+        windows: bool,
+    }
+
+    impl FileSystem for StubFs {
+        fn is_directory(&self, _: TypedPath) -> Result<bool, Error> {
+            unimplemented!()
+        }
+        fn read_dir(&self, _: TypedPath) -> Result<Vec<TypedPathBuf>, Error> {
+            unimplemented!()
+        }
+        fn read_file(&self, _: TypedPath) -> Result<Vec<u8>, Error> {
+            unimplemented!()
+        }
+        fn write_file(&self, _: TypedPath, _: &[u8]) -> Result<(), Error> {
+            unimplemented!()
+        }
+        fn stream_to_file(&self, _: TypedPath, _: &mut dyn Read) -> Result<(), Error> {
+            unimplemented!()
+        }
+        fn make_dir(&self, _: TypedPath) -> Result<(), Error> {
+            unimplemented!()
+        }
+        fn exists(&self, _: TypedPath) -> Result<bool, Error> {
+            unimplemented!()
+        }
+        fn open_file(&self, _: TypedPath) -> Result<Arc<dyn FileSource>, Error> {
+            unimplemented!()
+        }
+        fn is_windows(&self) -> bool {
+            self.windows
+        }
+    }
+
+    fn with_taken(taken: &[&str], filename: &str) -> String {
+        let fs = StubFs { windows: false };
+        let mut section = section::Renderer::new();
+        for name in taken {
+            section.files.insert((*name).to_string());
+        }
+        let output = TypedPathBuf::from_unix("/out");
+        let mut renderer = Renderer::new(output, &mut section, Options::default(), fs);
+        renderer.determine_filename(filename).unwrap()
+    }
+
+    #[test]
+    fn returns_input_when_unused() {
+        assert_eq!(with_taken(&[], "image.png"), "image.png");
+    }
+
+    #[test]
+    fn suffixes_on_collision_preserving_extension() {
+        assert_eq!(with_taken(&["image.png"], "image.png"), "image-0.png");
+    }
+
+    #[test]
+    fn keeps_incrementing_past_existing_suffixes() {
+        assert_eq!(
+            with_taken(&["image.png", "image-0.png", "image-1.png"], "image.png"),
+            "image-2.png"
+        );
+    }
+
+    #[test]
+    fn no_extension_falls_back_to_bin() {
+        assert_eq!(with_taken(&["README"], "README"), "README-0.bin");
+    }
+
+    #[test]
+    fn trailing_dot_falls_back_to_bin() {
+        assert_eq!(with_taken(&["file."], "file."), "file-0.bin");
+    }
+
+    #[test]
+    fn leading_dot_treated_as_extensionless() {
+        assert_eq!(
+            with_taken(&[".gitignore"], ".gitignore"),
+            ".gitignore-0.bin"
+        );
+    }
+
+    #[test]
+    fn multiple_dots_split_at_last_dot() {
+        assert_eq!(
+            with_taken(&["archive.tar.gz"], "archive.tar.gz"),
+            "archive.tar-0.gz"
+        );
     }
 }

@@ -4,7 +4,6 @@ use onenote_parser::FileSystem;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
-use std::path::Path;
 #[cfg(feature = "native-fs")]
 use std::time::Duration;
 
@@ -35,10 +34,13 @@ pub(crate) fn px(inches: f32) -> String {
 }
 
 pub(crate) fn sanitize_output_filename(filename: &str, fs: impl FileSystem) -> Result<String> {
-    let basename = Path::new(filename)
-        .file_name()
-        .and_then(|name| name.to_str())
-        .ok_or_else(|| eyre!("Output filename has no valid basename"))?;
+    if filename.is_empty() {
+        return Err(eyre!("Output filename is empty"));
+    }
+    let basename = filename
+        .rsplit_once(&['/', '\\'][..])
+        .map(|(_, b)| b)
+        .unwrap_or(filename);
     sanitize_path(basename, fs)
 }
 
