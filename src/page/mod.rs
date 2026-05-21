@@ -6,7 +6,7 @@ use color_eyre::Result;
 use onenote_parser::FileSystem;
 use onenote_parser::page::{Page, PageContent};
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+use typed_path::TypedPathBuf;
 
 pub(crate) mod content;
 pub(crate) mod embedded_file;
@@ -22,7 +22,7 @@ pub(crate) mod table;
 pub(crate) struct Renderer<'a, FS: FileSystem> {
     fs: FS,
 
-    output: PathBuf,
+    output: TypedPathBuf,
     section: &'a mut section::Renderer,
 
     in_list: bool,
@@ -33,7 +33,7 @@ pub(crate) struct Renderer<'a, FS: FileSystem> {
 
 impl<'a, FS: FileSystem> Renderer<'a, FS> {
     pub(crate) fn new(
-        output: PathBuf,
+        output: TypedPathBuf,
         section: &'a mut section::Renderer,
         options: Options,
         fs: FS,

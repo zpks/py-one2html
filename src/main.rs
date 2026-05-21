@@ -7,6 +7,7 @@ use one2html::{MathTarget, NoteTagIcons};
 use simplelog::{ColorChoice, CombinedLogger, Config, TermLogger, TerminalMode};
 use std::path::PathBuf;
 use std::process::exit;
+use typed_path::NativePath;
 
 #[derive(Parser, Debug)]
 #[command(name = "one2html")]
@@ -77,14 +78,14 @@ fn _main() -> Result<()> {
 
     for path in opt.input {
         one2html::convert(
-            &path,
-            &output_dir,
+            NativePath::new(path.as_os_str().as_encoded_bytes()).to_typed_path(),
+            NativePath::new(output_dir.as_os_str().as_encoded_bytes()).to_typed_path(),
             one2html::Options {
                 warnings: opt.warnings,
                 math_target: opt.math_target,
                 note_tag_icons: opt.note_tag_icons,
             },
-            onenote_parser::fs::NativeFs {},
+            onenote_parser::fs::native_fs::NativeFs {},
         )?;
     }
 

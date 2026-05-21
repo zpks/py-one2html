@@ -39,8 +39,12 @@ pub(crate) fn sanitize_output_filename(filename: &str, fs: impl FileSystem) -> R
         .file_name()
         .and_then(|name| name.to_str())
         .ok_or_else(|| eyre!("Output filename has no valid basename"))?;
+    sanitize_path(basename, fs)
+}
+
+pub(crate) fn sanitize_path(path: &str, fs: impl FileSystem) -> Result<String> {
     let sanitized = sanitize_filename::sanitize_with_options(
-        basename,
+        path,
         sanitize_filename::Options {
             windows: fs.is_windows(),
             ..Default::default()
@@ -48,7 +52,7 @@ pub(crate) fn sanitize_output_filename(filename: &str, fs: impl FileSystem) -> R
     );
 
     if sanitized.is_empty() {
-        return Err(eyre!("Output filename is empty after sanitization"));
+        return Err(eyre!("Path is empty after sanitization"));
     }
 
     Ok(sanitized)

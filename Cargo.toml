@@ -45,9 +45,10 @@ phf = { version = "0.13", features = ["macros"] }
 num-traits = "0.2"
 finl_unicode = "1.4"
 simplelog = { version = "0.12", optional = true }
+typed-path = "0.12.3"
 
 [profile.dev.package.backtrace]
 opt-level = 3
 
 [patch.crates-io]
-onenote_parser = { git = "https://github.com/msiemens/onenote.rs", branch = "joplin-merge" }
+onenote_parser = { git = "https://github.com/msiemens/onenote.rs", branch = "feat/onenote-desktop" }

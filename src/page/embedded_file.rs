@@ -15,7 +15,7 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
 
         let mut reader = file.read();
         self.fs
-            .stream_to_file(target_file.as_path(), &mut *reader)
+            .stream_to_file(target_file.to_path(), &mut *reader)
             .wrap_err("Failed to write embedded file")?;
 
         let file_type = Self::guess_type(file);

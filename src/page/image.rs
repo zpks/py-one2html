@@ -22,7 +22,7 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
             // Re-prepend the sniffed bytes so the file we write out is complete.
             let mut reader = Cursor::new(image_start_bytes).chain(reader);
             self.fs
-                .stream_to_file(target_file.as_path(), &mut reader)
+                .stream_to_file(target_file.to_path(), &mut reader)
                 .wrap_err("Failed to write image")?;
 
             let mut attrs = AttributeSet::new();

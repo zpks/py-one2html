@@ -646,13 +646,14 @@ dependencies = [
  "regex",
  "sanitize-filename",
  "simplelog",
+ "typed-path",
  "unicode-blocks",
 ]
 
 [[package]]
 name = "onenote_parser"
 version = "1.1.1"
-source = "git+https://github.com/msiemens/onenote.rs?branch=joplin-merge#1ed599c0613ffa58c96cf1abdb51e99ba85b5ae2"
+source = "git+https://github.com/msiemens/onenote.rs?branch=feat%2Fonenote-desktop#b3f62a00f90f54b5fff66f61fb3c214fccd404a7"
 dependencies = [
  "bytes",
  "cab",
@@ -666,6 +667,7 @@ dependencies = [
  "sanitize-filename",
  "thiserror",
  "time",
+ "typed-path",
  "uuid",
  "widestring",
 ]
@@ -673,7 +675,7 @@ dependencies = [
 [[package]]
 name = "onenote_parser-macros"
 version = "1.1.1"
-source = "git+https://github.com/msiemens/onenote.rs?branch=joplin-merge#1ed599c0613ffa58c96cf1abdb51e99ba85b5ae2"
+source = "git+https://github.com/msiemens/onenote.rs?branch=feat%2Fonenote-desktop#b3f62a00f90f54b5fff66f61fb3c214fccd404a7"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1116,6 +1118,12 @@ dependencies = [
  "thread_local",
  "tracing-core",
 ]
+
+[[package]]
+name = "typed-path"
+version = "0.12.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e28f89b80c87b8fb0cf04ab448d5dd0dd0ade2f8891bae878de66a75a28600e"
 
 [[package]]
 name = "unicase"

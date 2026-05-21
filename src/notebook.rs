@@ -1,5 +1,5 @@
 use crate::templates::notebook::Toc;
-use crate::utils::sanitize_output_filename;
+use crate::utils::{sanitize_output_filename, sanitize_path};
 use crate::{Options, section, templates};
 use color_eyre::eyre::Result;
 use onenote_parser::FileSystem;
@@ -8,7 +8,7 @@ use onenote_parser::property::common::Color;
 use onenote_parser::section::{Section, SectionEntry};
 use palette::rgb::Rgb;
 use palette::{Alpha, Darken, FromColor, Hsl, Saturate, Srgb};
-use std::path::Path;
+use typed_path::TypedPath;
 
 pub(crate) type RgbColor = Alpha<Rgb<palette::encoding::Srgb, u8>, f32>;
 
@@ -24,26 +24,34 @@ impl Renderer {
         notebook: &Notebook,
         name: &str,
         options: Options,
-        output_dir: &Path,
+        output_dir: TypedPath,
         fs: impl FileSystem,
     ) -> Result<()> {
         fs.make_dir(output_dir)?;
 
-        let notebook_dir = output_dir.join(sanitize_filename::sanitize(name));
+        let notebook_dir = output_dir.join(sanitize_path(name, fs)?);
 
-        fs.make_dir(notebook_dir.as_path())?;
+        fs.make_dir(notebook_dir.to_path())?;
 
         let mut toc = Vec::new();
 
         for entry in notebook.entries() {
-            self.walk_entry(entry, &notebook_dir, output_dir, 0, options, fs, &mut toc)?;
+            self.walk_entry(
+                entry,
+                notebook_dir.to_path(),
+                output_dir,
+                0,
+                options,
+                fs,
+                &mut toc,
+            )?;
         }
 
         let toc_html = templates::notebook::render(name, &toc)?;
         let toc_name = sanitize_output_filename(name, fs)? + ".html";
         let toc_file = output_dir.join(toc_name);
 
-        fs.write_file(toc_file.as_path(), toc_html.as_bytes())?;
+        fs.write_file(toc_file.to_path(), toc_html.as_bytes())?;
 
         Ok(())
     }
@@ -52,8 +60,8 @@ impl Renderer {
     fn walk_entry(
         &mut self,
         entry: &SectionEntry,
-        parent_dir: &Path,
-        base_dir: &Path,
+        parent_dir: TypedPath,
+        base_dir: TypedPath,
         depth: u32,
         options: Options,
         fs: impl FileSystem,
@@ -68,8 +76,8 @@ impl Renderer {
                 });
             }
             SectionEntry::SectionGroup(group) => {
-                let group_dir = parent_dir.join(sanitize_filename::sanitize(group.display_name()));
-                fs.make_dir(group_dir.as_path())?;
+                let group_dir = parent_dir.join(sanitize_path(group.display_name(), fs)?);
+                fs.make_dir(group_dir.to_path())?;
 
                 toc.push(Toc::GroupHeader {
                     name: group.display_name().to_string(),
@@ -77,7 +85,15 @@ impl Renderer {
                 });
 
                 for child in group.entries() {
-                    self.walk_entry(child, &group_dir, base_dir, depth + 1, options, fs, toc)?;
+                    self.walk_entry(
+                        child,
+                        group_dir.to_path(),
+                        base_dir,
+                        depth + 1,
+                        options,
+                        fs,
+                        toc,
+                    )?;
                 }
             }
         }
@@ -87,8 +103,8 @@ impl Renderer {
     fn render_section(
         &mut self,
         section: &Section,
-        notebook_dir: &Path,
-        base_dir: &Path,
+        notebook_dir: TypedPath,
+        base_dir: TypedPath,
         options: Options,
         fs: impl FileSystem,
     ) -> Result<templates::notebook::Section> {
