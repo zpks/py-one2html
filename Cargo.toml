@@ -9,6 +9,10 @@ repository = "https://github.com/msiemens/one2html"
 keywords = ["onenote"]
 categories = ["command-line-utilities", "encoding"]
 
+[[bin]]
+name = "one2html"
+required-features = ["bin"]
+
 [features]
 default = ["backtrace", "native-fs", "bin", "onepkg"]
 
