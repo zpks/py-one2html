@@ -116,6 +116,9 @@ mod tests {
         fn open_file(&self, _: TypedPath) -> Result<Arc<dyn FileSource>, Error> {
             unimplemented!()
         }
+        fn canonicalize(&self, _: TypedPath) -> Result<TypedPathBuf, Error> {
+            unimplemented!()
+        }
         fn is_windows(&self) -> bool {
             self.windows
         }
