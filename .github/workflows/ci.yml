@@ -42,3 +42,17 @@ jobs:
       - run: cargo clippy ${{ matrix.args }} -- -D warnings
 
       - uses: EmbarkStudios/cargo-deny-action@6c8f9facfa5047ec02d8485b6bf52b587b7777d1 # v2
+
+  wasm:
+    name: WASM build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # master
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+
+      - run: cargo build --lib --no-default-features --target wasm32-unknown-unknown

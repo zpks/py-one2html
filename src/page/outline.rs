@@ -1,9 +1,10 @@
 use crate::page::Renderer;
 use crate::utils::{AttributeSet, StyleSet, px};
 use color_eyre::Result;
+use onenote_parser::FileSystem;
 use onenote_parser::contents::{Outline, OutlineElement, OutlineItem};
 
-impl<'a> Renderer<'a> {
+impl<'a, FS: FileSystem> Renderer<'a, FS> {
     pub(crate) fn render_outline(&mut self, outline: &Outline) -> Result<String> {
         let mut attrs = AttributeSet::new();
         let mut styles = StyleSet::new();
@@ -72,7 +73,7 @@ impl<'a> Renderer<'a> {
         }
 
         let mut contents = String::new();
-        let is_list = self.is_list(element);
+        let is_list_item = self.is_list(element) || self.is_tag_list(element);
 
         let mut attrs = AttributeSet::new();
         attrs.set("class", "outline-element".to_string());
@@ -81,25 +82,19 @@ impl<'a> Renderer<'a> {
         styles.set("margin-left", px(indent_width));
         attrs.set("style", styles.to_string());
 
-        if is_list {
+        if is_list_item {
             contents.push_str(&format!("<li {}>", attrs));
         } else {
             contents.push_str(&format!("<div {}>", attrs));
         }
 
-        self.in_list = is_list;
+        self.in_list = is_list_item;
 
-        contents.extend(
-            element
-                .contents()
-                .iter()
-                .map(|content| self.render_content(content))
-                .collect::<Result<Vec<_>, _>>()?,
-        );
+        contents.push_str(&self.render_contents(element.contents())?);
 
         self.in_list = false;
 
-        if !is_list {
+        if !is_list_item {
             contents.push_str("</div>");
         }
 
@@ -114,7 +109,7 @@ impl<'a> Renderer<'a> {
             )?);
         }
 
-        if is_list {
+        if is_list_item {
             contents.push_str("</li>");
         }
 

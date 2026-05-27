@@ -1,19 +1,25 @@
-use super::ast::*;
+use crate::page::math::ast::{
+    BoxAlignment, BoxDisplay, BoxFlags, BoxSize, BoxSpace, BoxedFormulaAlignment,
+    BracketsAlignment, Equation, EquationArrayAlignment, MathOp, MatrixAlignment, MatrixBrackets,
+    NAryAlignment, NAryDisplay, NAryFlags, NAryOptions, PhantomDisplay, PhantomKind,
+    StretchStackPosition, SubSupAlignment,
+};
+use crate::page::math::render::is_skippable_format;
 use crate::page::math::text::TextType;
-use color_eyre::Result;
 use color_eyre::eyre::eyre;
-use finl_unicode::categories::CharacterCategories;
 use itertools::Itertools;
 use log::warn;
 
-pub(super) fn render_equation(equation: Equation) -> Result<String> {
+pub(super) fn render_equation(equation: Equation, block: bool) -> color_eyre::Result<String> {
+    let display_attr = if block { " display=\"block\"" } else { "" };
     Ok(format!(
-        "<math xmlns=\"http://www.w3.org/1998/Math/MathML\">{}</math>",
+        "<math xmlns=\"http://www.w3.org/1998/Math/MathML\"{}>{}</math>",
+        display_attr,
         render_eq(equation)?
     ))
 }
 
-fn render_eq(eq: Equation) -> Result<String> {
+fn render_eq(eq: Equation) -> color_eyre::Result<String> {
     let mut content = String::new();
 
     for op in eq {
@@ -23,18 +29,21 @@ fn render_eq(eq: Equation) -> Result<String> {
     Ok(content)
 }
 
-fn render_group(eq: Equation) -> Result<String> {
+fn render_group(eq: Equation) -> color_eyre::Result<String> {
     match eq.len() {
         0 => Ok("<mi></mi>".to_string()),
         1 => match &eq[0] {
             MathOp::Text(text) => Ok(format!("<mrow>{}</mrow>", render_text(text.clone())?)),
-            _ => eq.into_iter().map(render_op).collect::<Result<_>>(),
+            _ => eq
+                .into_iter()
+                .map(render_op)
+                .collect::<color_eyre::Result<_>>(),
         },
         _ => Ok(format!("<mrow>{}</mrow>", render_eq(eq)?)),
     }
 }
 
-fn render_op(op: MathOp) -> Result<String> {
+fn render_op(op: MathOp) -> color_eyre::Result<String> {
     match op {
         MathOp::Text(text) => render_text(text),
         MathOp::Accent { char, body } => render_accent(char, body),
@@ -98,7 +107,7 @@ fn render_op(op: MathOp) -> Result<String> {
     }
 }
 
-fn render_text(text: String) -> Result<String> {
+fn render_text(text: String) -> color_eyre::Result<String> {
     // <mi>: identifier
     // <mo>: operator
     // <mn>: numeric
@@ -198,11 +207,7 @@ fn render_text(text: String) -> Result<String> {
     Ok(text)
 }
 
-fn is_skippable_format(c: char) -> bool {
-    c.is_format() && c != '\u{2061}'
-}
-
-fn render_accent(char: char, body: Equation) -> Result<String> {
+fn render_accent(char: char, body: Equation) -> color_eyre::Result<String> {
     Ok(format!(
         "<mover accent=\"true\">{}<mo>{}</mo></mover>",
         render_group(body)?,
@@ -210,7 +215,7 @@ fn render_accent(char: char, body: Equation) -> Result<String> {
     ))
 }
 
-fn render_box(body: Equation, align: Option<BoxDisplay>) -> Result<String> {
+fn render_box(body: Equation, align: Option<BoxDisplay>) -> color_eyre::Result<String> {
     let Some(display) = align else {
         return render_group(body);
     };
@@ -260,7 +265,10 @@ fn render_box(body: Equation, align: Option<BoxDisplay>) -> Result<String> {
     Ok(content)
 }
 
-fn render_boxed_formula(body: Equation, align: Option<BoxedFormulaAlignment>) -> Result<String> {
+fn render_boxed_formula(
+    body: Equation,
+    align: Option<BoxedFormulaAlignment>,
+) -> color_eyre::Result<String> {
     if align.is_some() {
         warn!(
             "Math feature not implemented: boxed-formula alignment. Please provide a sample at https://github.com/msiemens/one2html/issues."
@@ -278,7 +286,7 @@ fn render_brackets(
     close: Option<char>,
     body: Equation,
     align: Option<BracketsAlignment>,
-) -> Result<String> {
+) -> color_eyre::Result<String> {
     let size = bracket_size(align);
 
     let open = open
@@ -319,7 +327,7 @@ fn render_brackets_with_seps(
     sep: char,
     segments: Vec<Equation>,
     align: Option<BracketsAlignment>,
-) -> Result<String> {
+) -> color_eyre::Result<String> {
     let size = bracket_size(align);
 
     let open = open
@@ -335,7 +343,7 @@ fn render_brackets_with_seps(
     let content = segments
         .into_iter()
         .map(render_group)
-        .collect::<Result<Vec<_>>>()?
+        .collect::<color_eyre::Result<Vec<_>>>()?
         .join(&sep);
 
     Ok(format!("<mrow>{}{}{}</mrow>", open, content, close))
@@ -345,7 +353,7 @@ fn render_equation_array(
     _columns: u8,
     rows: Vec<Equation>,
     align: Option<EquationArrayAlignment>,
-) -> Result<String> {
+) -> color_eyre::Result<String> {
     if align.is_some() {
         warn!(
             "Math feature not implemented: equation-array alignment. Please provide a sample to the developer on GitHub."
@@ -358,14 +366,14 @@ fn render_equation_array(
     let rows = rows
         .into_iter()
         .map(|row| Ok(format!("<mtr><mtd>{}</mtd></mtr>", render_group(row)?)))
-        .collect::<Result<Vec<_>>>()?
+        .collect::<color_eyre::Result<Vec<_>>>()?
         .join("")
         .replace('&', "<malignmark edge=\"left\"></malignmark>");
 
     Ok(format!("<mtable>{}</mtable>", rows))
 }
 
-fn render_fraction(num: Equation, den: Equation, small: bool) -> Result<String> {
+fn render_fraction(num: Equation, den: Equation, small: bool) -> color_eyre::Result<String> {
     if small {
         return Ok(format!(
             "<mfrac>{}{}</mfrac>",
@@ -381,7 +389,7 @@ fn render_fraction(num: Equation, den: Equation, small: bool) -> Result<String> 
     ))
 }
 
-fn render_function_apply(func: Equation, body: Equation) -> Result<String> {
+fn render_function_apply(func: Equation, body: Equation) -> color_eyre::Result<String> {
     Ok(format!(
         "{}<mo>\u{2061}</mo>{}",
         render_group(func)?,
@@ -389,7 +397,7 @@ fn render_function_apply(func: Equation, body: Equation) -> Result<String> {
     ))
 }
 
-fn render_left_sub_sup(sub: Equation, sup: Equation, body: Equation) -> Result<String> {
+fn render_left_sub_sup(sub: Equation, sup: Equation, body: Equation) -> color_eyre::Result<String> {
     let sup = if sup.is_empty() {
         "<none/>".to_string()
     } else {
@@ -409,7 +417,7 @@ fn render_left_sub_sup(sub: Equation, sup: Equation, body: Equation) -> Result<S
     ))
 }
 
-fn render_lower_limit(body: Equation, limit: Equation) -> Result<String> {
+fn render_lower_limit(body: Equation, limit: Equation) -> color_eyre::Result<String> {
     Ok(format!(
         "<munder>{}{}</munder>",
         render_group(body)?,
@@ -422,7 +430,7 @@ fn render_matrix(
     items: Vec<Equation>,
     brackets: Option<MatrixBrackets>,
     align: Option<MatrixAlignment>,
-) -> Result<String> {
+) -> color_eyre::Result<String> {
     let show_placeholder = matches!(align, Some(MatrixAlignment::ShowMatPlaceHldr));
     let row_align = match align {
         Some(MatrixAlignment::MatrixAlignTopRow) => " rowalign=\"top\"",
@@ -445,7 +453,7 @@ fn render_matrix(
                 render_matrix_row(cells, show_placeholder)?
             ))
         })
-        .collect::<Result<Vec<_>>>()?
+        .collect::<color_eyre::Result<Vec<_>>>()?
         .join("");
 
     Ok(format!(
@@ -454,7 +462,7 @@ fn render_matrix(
     ))
 }
 
-fn render_matrix_row(items: Vec<Equation>, show_placeholder: bool) -> Result<String> {
+fn render_matrix_row(items: Vec<Equation>, show_placeholder: bool) -> color_eyre::Result<String> {
     items
         .into_iter()
         .map(|eq| {
@@ -466,7 +474,7 @@ fn render_matrix_row(items: Vec<Equation>, show_placeholder: bool) -> Result<Str
                 Ok(format!("<mtd>{}</mtd>", render_group(eq)?))
             }
         })
-        .collect::<Result<Vec<_>>>()
+        .collect::<color_eyre::Result<Vec<_>>>()
         .map(|cells| cells.join(""))
 }
 
@@ -484,7 +492,7 @@ fn render_nary(
     sup: Equation,
     body: Equation,
     display: Option<NAryDisplay>,
-) -> Result<String> {
+) -> color_eyre::Result<String> {
     let sub_is_empty = sub.is_empty();
     let sup_is_empty = sup.is_empty();
     let mut op_node = format!("<mo>{}</mo>", op);
@@ -513,17 +521,31 @@ fn render_nary(
             std::mem::swap(&mut sub_content, &mut sup_content);
         }
 
-        let nary = match display.align {
-            NAryAlignment::LimitsSubSup | NAryAlignment::UpperLimitAsSuperScript => {
-                format!(
-                    "<msubsup>{}{}{}</msubsup>",
-                    op_node, sub_content, sup_content
-                )
-            }
-            _ => format!(
+        // Integrals conventionally render bounds as sub/superscripts unless
+        // the source explicitly requested above/below (which OneNote stores
+        // for display-style equations). Other operators (∑ ∏ etc.) follow
+        // the source flag, defaulting to above/below.
+        // Integrals always render bounds as sub/superscripts in OneNote,
+        // regardless of the source's `LimitsUnderOver` flag — that flag
+        // controls display *size*, not bound placement, for integrals.
+        // Other operators (∑ ∏ etc.) follow the source flag, defaulting
+        // to above/below.
+        let beside = is_integral_op(op)
+            || matches!(
+                display.align,
+                NAryAlignment::LimitsSubSup | NAryAlignment::UpperLimitAsSuperScript
+            );
+
+        let nary = if beside {
+            format!(
+                "<msubsup>{}{}{}</msubsup>",
+                op_node, sub_content, sup_content
+            )
+        } else {
+            format!(
                 "<munderover>{}{}{}</munderover>",
                 op_node, sub_content, sup_content
-            ),
+            )
         };
 
         return Ok(format!("<mrow>{}{}</mrow>", nary, render_group(body)?));
@@ -531,8 +553,14 @@ fn render_nary(
 
     let sub = render_group(sub)?;
     let sup = render_group(sup)?;
+    let tag = if is_integral_op(op) {
+        "msubsup"
+    } else {
+        "munderover"
+    };
     Ok(format!(
-        "<mrow><munderover>{}{}{}</munderover>{}</mrow>",
+        "<mrow><{0}>{1}{2}{3}</{0}>{4}</mrow>",
+        tag,
         op_node,
         sub,
         sup,
@@ -540,7 +568,24 @@ fn render_nary(
     ))
 }
 
-fn render_over_bar(body: Equation) -> Result<String> {
+/// Integrals conventionally render their bounds as sub/superscripts beside
+/// the symbol, not stacked above/below — `<munderover>` would force the
+/// stacked form regardless of operator. Anything in this set defaults to
+/// `<msubsup>` when the source doesn't pin down `\limits` vs `\nolimits`.
+fn is_integral_op(c: char) -> bool {
+    matches!(
+        c,
+        '\u{222B}' // ∫
+        | '\u{222C}' // ∬
+        | '\u{222D}' // ∭
+        | '\u{2A0C}' // ⨌
+        | '\u{222E}' // ∮
+        | '\u{222F}' // ∯
+        | '\u{2230}' // ∰
+    )
+}
+
+fn render_over_bar(body: Equation) -> color_eyre::Result<String> {
     Ok(format!(
         "<mover accent=\"true\">{}<mo>\u{00af}</mo></mover>",
         render_group(body)?
@@ -551,7 +596,7 @@ fn render_phantom(
     kind: PhantomKind,
     display: Option<PhantomDisplay>,
     body: Equation,
-) -> Result<String> {
+) -> color_eyre::Result<String> {
     let mut show = matches!(
         kind,
         PhantomKind::AscentSmash
@@ -622,7 +667,7 @@ fn render_phantom(
     Ok(content)
 }
 
-fn render_radical(degree: Equation, body: Equation) -> Result<String> {
+fn render_radical(degree: Equation, body: Equation) -> color_eyre::Result<String> {
     Ok(format!(
         "<mroot>{}{}</mroot>",
         render_group(body)?,
@@ -630,7 +675,11 @@ fn render_radical(degree: Equation, body: Equation) -> Result<String> {
     ))
 }
 
-fn render_slashed_fraction(num: Equation, den: Equation, linear: bool) -> Result<String> {
+fn render_slashed_fraction(
+    num: Equation,
+    den: Equation,
+    linear: bool,
+) -> color_eyre::Result<String> {
     if linear {
         return Ok(format!(
             "{}<mo>⁄</mo>{}",
@@ -648,7 +697,7 @@ fn render_slashed_fraction(num: Equation, den: Equation, linear: bool) -> Result
     ))
 }
 
-fn render_stack(num: Equation, den: Equation) -> Result<String> {
+fn render_stack(num: Equation, den: Equation) -> color_eyre::Result<String> {
     Ok(format!(
         "<mtable><mtr><mtd>{}</mtd></mtr><mtr><mtd>{}</mtd></mtr></mtable>",
         render_group(num)?,
@@ -656,7 +705,11 @@ fn render_stack(num: Equation, den: Equation) -> Result<String> {
     ))
 }
 
-fn render_stretch_stack(char: char, pos: StretchStackPosition, body: Equation) -> Result<String> {
+fn render_stretch_stack(
+    char: char,
+    pos: StretchStackPosition,
+    body: Equation,
+) -> color_eyre::Result<String> {
     // OneNote distinguishes "char vs base" above/below, but MathML mover/munder
     // always use the first child as the base and the second as the stacked mark,
     // so we always treat `body` as the base and `char` as the stacked element.
@@ -677,7 +730,7 @@ fn render_stretch_stack(char: char, pos: StretchStackPosition, body: Equation) -
     ))
 }
 
-fn render_subscript(sub: Equation, body: Equation) -> Result<String> {
+fn render_subscript(sub: Equation, body: Equation) -> color_eyre::Result<String> {
     let sub = if sub.is_empty() {
         "<mo>⬚</mo>".to_string()
     } else {
@@ -692,7 +745,7 @@ fn render_sub_sup(
     sup: Equation,
     body: Equation,
     align: Option<SubSupAlignment>,
-) -> Result<String> {
+) -> color_eyre::Result<String> {
     if align.is_some() {
         warn!(
             "Math feature not implemented: sub-sup alignment. Please provide a sample to the developer on GitHub."
@@ -718,7 +771,7 @@ fn render_sub_sup(
     ))
 }
 
-fn render_superscript(sup: Equation, body: Equation) -> Result<String> {
+fn render_superscript(sup: Equation, body: Equation) -> color_eyre::Result<String> {
     let sup = if sup.is_empty() {
         "<mo>⬚</mo>".to_string()
     } else {
@@ -728,14 +781,14 @@ fn render_superscript(sup: Equation, body: Equation) -> Result<String> {
     Ok(format!("<msup>{}{}</msup>", render_group(body)?, sup))
 }
 
-fn render_under_bar(body: Equation) -> Result<String> {
+fn render_under_bar(body: Equation) -> color_eyre::Result<String> {
     Ok(format!(
         "<munder accentunder=\"true\">{}<mo>_</mo></munder>",
         render_group(body)?
     ))
 }
 
-fn render_upper_limit(body: Equation, limit: Equation) -> Result<String> {
+fn render_upper_limit(body: Equation, limit: Equation) -> color_eyre::Result<String> {
     Ok(format!(
         "<mover>{}{}</mover>",
         render_group(body)?,

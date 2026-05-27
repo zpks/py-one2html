@@ -1,24 +1,29 @@
 use crate::page::Renderer;
-use crate::utils::sanitize_output_filename;
+use crate::utils::{html_entities, sanitize_output_filename};
 use color_eyre::Result;
-use color_eyre::eyre::{ContextCompat, WrapErr};
+use color_eyre::eyre::WrapErr;
+use onenote_parser::FileSystem;
 use onenote_parser::contents::EmbeddedFile;
 use onenote_parser::property::embedded_file::FileType;
-use std::fs;
-use std::path::PathBuf;
 
-impl<'a> Renderer<'a> {
+impl<'a, FS: FileSystem> Renderer<'a, FS> {
     pub(crate) fn render_embedded_file(&mut self, file: &EmbeddedFile) -> Result<String> {
         let filename = self.determine_filename(file.filename())?;
-        fs::write(self.output.join(filename.clone()), file.data())
+
+        let target_file = self.output.join(filename.clone());
+
+        let mut reader = file.read();
+        self.fs
+            .stream_to_file(target_file.to_path(), &mut *reader)
             .wrap_err("Failed to write embedded file")?;
 
         let file_type = Self::guess_type(file);
 
+        let src = html_entities(&filename);
         let content = match file_type {
-            FileType::Audio => format!("<audio controls src=\"{}\"></audio>", filename),
-            FileType::Video => format!("<video controls src=\"{}\"></video>", filename),
-            FileType::Unknown => format!("<embed src=\"{}\" />", filename),
+            FileType::Audio => format!("<audio controls src=\"{}\"></audio>", src),
+            FileType::Video => format!("<video controls src=\"{}\"></video>", src),
+            FileType::Unknown => format!("<embed src=\"{}\" />", src),
         };
 
         Ok(self.render_with_note_tags(file.note_tags(), content))
@@ -47,7 +52,7 @@ impl<'a> Renderer<'a> {
 
     pub(crate) fn determine_filename(&mut self, filename: &str) -> Result<String> {
         let mut i = 0;
-        let sanitized = sanitize_output_filename(filename)?;
+        let sanitized = sanitize_output_filename(filename, self.fs)?;
         let mut current_filename = sanitized.clone();
 
         loop {
@@ -57,23 +62,117 @@ impl<'a> Renderer<'a> {
                 return Ok(current_filename);
             }
 
-            let path = PathBuf::from(&sanitized);
-            let ext = path
-                .extension()
-                .wrap_err("Embedded file has no extension")?
-                .to_str()
-                .wrap_err("Embedded file name is non utf-8")?;
-            let base = path
-                .as_os_str()
-                .to_str()
-                .wrap_err("Embedded file name is non utf-8")?
-                .strip_suffix(ext)
-                .wrap_err("Failed to strip extension from file name")?
-                .trim_matches('.');
+            let (base, ext) = match sanitized.rsplit_once('.') {
+                Some((base, ext)) if !base.is_empty() && !ext.is_empty() => (base, ext),
+                _ => (sanitized.trim_end_matches('.'), "bin"),
+            };
 
             current_filename = format!("{}-{}.{}", base, i, ext);
 
             i += 1;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Options;
+    use crate::page::Renderer;
+    use crate::section;
+    use onenote_parser::FileSystem;
+    use onenote_parser::fs::FileSource;
+    use std::io::Error;
+    use std::io::Read;
+    use std::sync::Arc;
+    use typed_path::{TypedPath, TypedPathBuf};
+
+    #[derive(Copy, Clone)]
+    struct StubFs {
+        windows: bool,
+    }
+
+    impl FileSystem for StubFs {
+        fn is_directory(&self, _: TypedPath) -> Result<bool, Error> {
+            unimplemented!()
+        }
+        fn read_dir(&self, _: TypedPath) -> Result<Vec<TypedPathBuf>, Error> {
+            unimplemented!()
+        }
+        fn read_file(&self, _: TypedPath) -> Result<Vec<u8>, Error> {
+            unimplemented!()
+        }
+        fn write_file(&self, _: TypedPath, _: &[u8]) -> Result<(), Error> {
+            unimplemented!()
+        }
+        fn stream_to_file(&self, _: TypedPath, _: &mut dyn Read) -> Result<(), Error> {
+            unimplemented!()
+        }
+        fn make_dir(&self, _: TypedPath) -> Result<(), Error> {
+            unimplemented!()
+        }
+        fn exists(&self, _: TypedPath) -> Result<bool, Error> {
+            unimplemented!()
+        }
+        fn open_file(&self, _: TypedPath) -> Result<Arc<dyn FileSource>, Error> {
+            unimplemented!()
+        }
+        fn is_windows(&self) -> bool {
+            self.windows
+        }
+    }
+
+    fn with_taken(taken: &[&str], filename: &str) -> String {
+        let fs = StubFs { windows: false };
+        let mut section = section::Renderer::new();
+        for name in taken {
+            section.files.insert((*name).to_string());
+        }
+        let output = TypedPathBuf::from_unix("/out");
+        let mut renderer = Renderer::new(output, &mut section, Options::default(), fs);
+        renderer.determine_filename(filename).unwrap()
+    }
+
+    #[test]
+    fn returns_input_when_unused() {
+        assert_eq!(with_taken(&[], "image.png"), "image.png");
+    }
+
+    #[test]
+    fn suffixes_on_collision_preserving_extension() {
+        assert_eq!(with_taken(&["image.png"], "image.png"), "image-0.png");
+    }
+
+    #[test]
+    fn keeps_incrementing_past_existing_suffixes() {
+        assert_eq!(
+            with_taken(&["image.png", "image-0.png", "image-1.png"], "image.png"),
+            "image-2.png"
+        );
+    }
+
+    #[test]
+    fn no_extension_falls_back_to_bin() {
+        assert_eq!(with_taken(&["README"], "README"), "README-0.bin");
+    }
+
+    #[test]
+    fn trailing_dot_falls_back_to_bin() {
+        assert_eq!(with_taken(&["file."], "file."), "file-0.bin");
+    }
+
+    #[test]
+    fn leading_dot_treated_as_extensionless() {
+        assert_eq!(
+            with_taken(&[".gitignore"], ".gitignore"),
+            ".gitignore-0.bin"
+        );
+    }
+
+    #[test]
+    fn multiple_dots_split_at_last_dot() {
+        assert_eq!(
+            with_taken(&["archive.tar.gz"], "archive.tar.gz"),
+            "archive.tar-0.gz"
+        );
     }
 }

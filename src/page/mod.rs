@@ -1,9 +1,12 @@
-use crate::section;
+use crate::page::ink::InkBuilder;
+use crate::templates::page::PageTimestamps;
 use crate::utils::StyleSet;
+use crate::{Options, section};
 use color_eyre::Result;
+use onenote_parser::FileSystem;
 use onenote_parser::page::{Page, PageContent};
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+use typed_path::TypedPathBuf;
 
 pub(crate) mod content;
 pub(crate) mod embedded_file;
@@ -16,23 +19,33 @@ pub(crate) mod outline;
 pub(crate) mod rich_text;
 pub(crate) mod table;
 
-pub(crate) struct Renderer<'a> {
-    output: PathBuf,
+pub(crate) struct Renderer<'a, FS: FileSystem> {
+    fs: FS,
+
+    output: TypedPathBuf,
     section: &'a mut section::Renderer,
 
     in_list: bool,
     global_styles: HashMap<String, StyleSet>,
     global_classes: HashSet<String>,
+    options: Options,
 }
 
-impl<'a> Renderer<'a> {
-    pub(crate) fn new(output: PathBuf, section: &'a mut section::Renderer) -> Self {
+impl<'a, FS: FileSystem> Renderer<'a, FS> {
+    pub(crate) fn new(
+        output: TypedPathBuf,
+        section: &'a mut section::Renderer,
+        options: Options,
+        fs: FS,
+    ) -> Self {
         Self {
+            fs,
             output,
             section,
             in_list: false,
             global_styles: HashMap::new(),
             global_classes: HashSet::new(),
+            options,
         }
     }
 
@@ -53,7 +66,7 @@ impl<'a> Renderer<'a> {
                 format!("{}px", (title.offset_horizontal() * 48.0 + 48.0).round()),
             );
 
-            let mut title_field = format!("<div class=\"title\" style=\"{}\">", styles);
+            let mut title_field = format!("<div class=\"title\" {}>", styles.to_html_attr());
 
             for outline in title.contents() {
                 title_field.push_str(&self.render_outline(outline)?)
@@ -64,15 +77,20 @@ impl<'a> Renderer<'a> {
             content.push_str(&title_field);
         }
 
-        let page_content = page
-            .contents()
-            .iter()
-            .map(|content| self.render_page_content(content))
-            .collect::<Result<String>>()?;
-
+        let page_content = self.render_page_contents(page.contents())?;
         content.push_str(&page_content);
 
-        crate::templates::page::render(title_text, &content, &self.global_styles)
+        crate::templates::page::render(
+            page.link_target_id(),
+            title_text,
+            &PageTimestamps {
+                created_time: page.created_time().unix_timestamp(),
+                updated_time: page.updated_time().unix_timestamp(),
+            },
+            &content,
+            &self.global_styles,
+            self.options,
+        )
     }
 
     pub(crate) fn gen_class(&mut self, prefix: &str) -> String {
@@ -90,13 +108,33 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    fn render_page_content(&mut self, content: &PageContent) -> Result<String> {
-        match content {
-            PageContent::Outline(outline) => self.render_outline(outline),
-            PageContent::Image(image) => self.render_image(image),
-            PageContent::EmbeddedFile(file) => self.render_embedded_file(file),
-            PageContent::Ink(ink) => Ok(self.render_ink(ink, None, false)),
-            PageContent::Unknown => Ok(String::new()),
+    fn render_page_contents(&mut self, contents: &[PageContent]) -> Result<String> {
+        let mut result = vec![];
+        let mut ink_builder = InkBuilder::new(false);
+
+        for content in contents {
+            if !matches!(content, PageContent::Ink(_)) {
+                result.push(ink_builder.finish());
+            }
+
+            match content {
+                PageContent::Outline(outline) => {
+                    result.push(self.render_outline(outline)?);
+                }
+                PageContent::Image(image) => {
+                    result.push(self.render_image(image)?);
+                }
+                PageContent::EmbeddedFile(file) => {
+                    result.push(self.render_embedded_file(file)?);
+                }
+                PageContent::Ink(ink) => {
+                    ink_builder.push(ink, None);
+                }
+                PageContent::Unknown => {}
+            }
         }
+        result.push(ink_builder.finish());
+
+        Ok(result.join(""))
     }
 }

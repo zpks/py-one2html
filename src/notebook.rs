@@ -1,14 +1,14 @@
 use crate::templates::notebook::Toc;
-use crate::utils::sanitize_output_filename;
-use crate::{section, templates};
-use color_eyre::eyre::{Result, eyre};
+use crate::utils::{sanitize_output_filename, sanitize_path};
+use crate::{Options, section, templates};
+use color_eyre::eyre::Result;
+use onenote_parser::FileSystem;
 use onenote_parser::notebook::Notebook;
 use onenote_parser::property::common::Color;
 use onenote_parser::section::{Section, SectionEntry};
 use palette::rgb::Rgb;
 use palette::{Alpha, Darken, FromColor, Hsl, Saturate, Srgb};
-use std::fs;
-use std::path::Path;
+use typed_path::TypedPath;
 
 pub(crate) type RgbColor = Alpha<Rgb<palette::encoding::Srgb, u8>, f32>;
 
@@ -19,69 +19,97 @@ impl Renderer {
         Renderer
     }
 
-    pub fn render(&mut self, notebook: &Notebook, name: &str, output_dir: &Path) -> Result<()> {
-        if !output_dir.is_dir() {
-            fs::create_dir(output_dir)?;
-        }
+    pub fn render(
+        &mut self,
+        notebook: &Notebook,
+        name: &str,
+        options: Options,
+        output_dir: TypedPath,
+        fs: impl FileSystem,
+    ) -> Result<()> {
+        fs.make_dir(output_dir)?;
 
-        let notebook_dir = output_dir.join(sanitize_filename::sanitize(name));
+        let notebook_dir = output_dir.join(sanitize_path(name, fs)?);
 
-        if !notebook_dir.is_dir() {
-            fs::create_dir(&notebook_dir)?;
-        }
+        fs.make_dir(notebook_dir.to_path())?;
 
         let mut toc = Vec::new();
 
         for entry in notebook.entries() {
-            match entry {
-                SectionEntry::Section(section) => {
-                    toc.push(Toc::Section(self.render_section(
-                        section,
-                        &notebook_dir,
-                        output_dir,
-                    )?));
-                }
-                SectionEntry::SectionGroup(group) => {
-                    let dir_name = sanitize_filename::sanitize(group.display_name());
-                    let group_dir = notebook_dir.join(dir_name);
-                    if !group_dir.is_dir() {
-                        fs::create_dir(&group_dir)?;
-                    }
-
-                    let mut entries = Vec::new();
-
-                    for entry in group.entries() {
-                        if let SectionEntry::Section(section) = entry {
-                            entries.push(self.render_section(section, &group_dir, output_dir)?);
-                        } else {
-                            return Err(eyre!("Nested section groups are not yet supported"));
-                        }
-                    }
-
-                    toc.push(templates::notebook::Toc::SectionGroup(
-                        group.display_name().to_string(),
-                        entries,
-                    ))
-                }
-            }
+            self.walk_entry(
+                entry,
+                notebook_dir.to_path(),
+                output_dir,
+                0,
+                options,
+                fs,
+                &mut toc,
+            )?;
         }
 
         let toc_html = templates::notebook::render(name, &toc)?;
-        let toc_name = sanitize_output_filename(name)? + ".html";
+        let toc_name = sanitize_output_filename(name, fs)? + ".html";
         let toc_file = output_dir.join(toc_name);
-        fs::write(toc_file, toc_html)?;
 
+        fs.write_file(toc_file.to_path(), toc_html.as_bytes())?;
+
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn walk_entry(
+        &mut self,
+        entry: &SectionEntry,
+        parent_dir: TypedPath,
+        base_dir: TypedPath,
+        depth: u32,
+        options: Options,
+        fs: impl FileSystem,
+        toc: &mut Vec<Toc>,
+    ) -> Result<()> {
+        match entry {
+            SectionEntry::Section(section) => {
+                let rendered = self.render_section(section, parent_dir, base_dir, options, fs)?;
+                toc.push(Toc::Section {
+                    section: rendered,
+                    depth,
+                });
+            }
+            SectionEntry::SectionGroup(group) => {
+                let group_dir = parent_dir.join(sanitize_path(group.display_name(), fs)?);
+                fs.make_dir(group_dir.to_path())?;
+
+                toc.push(Toc::GroupHeader {
+                    name: group.display_name().to_string(),
+                    depth,
+                });
+
+                for child in group.entries() {
+                    self.walk_entry(
+                        child,
+                        group_dir.to_path(),
+                        base_dir,
+                        depth + 1,
+                        options,
+                        fs,
+                        toc,
+                    )?;
+                }
+            }
+        }
         Ok(())
     }
 
     fn render_section(
         &mut self,
         section: &Section,
-        notebook_dir: &Path,
-        base_dir: &Path,
+        notebook_dir: TypedPath,
+        base_dir: TypedPath,
+        options: Options,
+        fs: impl FileSystem,
     ) -> Result<templates::notebook::Section> {
         let mut renderer = section::Renderer::new();
-        let path = renderer.render(section, notebook_dir)?;
+        let path = renderer.render(section, notebook_dir, options, fs)?;
 
         Ok(templates::notebook::Section {
             name: section.display_name().to_string(),

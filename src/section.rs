@@ -1,10 +1,10 @@
-use crate::utils::sanitize_output_filename;
-use crate::{page, templates};
+use crate::utils::{sanitize_output_filename, sanitize_path};
+use crate::{Options, page, templates};
 use color_eyre::eyre::Result;
+use onenote_parser::FileSystem;
 use onenote_parser::section::Section;
 use std::collections::HashSet;
-use std::fs;
-use std::path::{Path, PathBuf};
+use typed_path::{TypedPath, TypedPathBuf};
 
 pub(crate) struct Renderer {
     pub(crate) files: HashSet<String>,
@@ -19,14 +19,18 @@ impl Renderer {
         }
     }
 
-    pub fn render(&mut self, section: &Section, output_dir: &Path) -> Result<PathBuf> {
-        let section_dir = output_dir.join(sanitize_filename::sanitize(section.display_name()));
+    pub fn render(
+        &mut self,
+        section: &Section,
+        output_dir: TypedPath,
+        options: Options,
+        fs: impl FileSystem,
+    ) -> Result<TypedPathBuf> {
+        let section_dir = output_dir.join(sanitize_path(section.display_name(), fs)?);
 
-        if !section_dir.is_dir() {
-            fs::create_dir(&section_dir)?;
-        }
+        fs.make_dir(section_dir.to_path())?;
 
-        let mut toc = Vec::new();
+        let mut entries: Vec<templates::section::Entry> = Vec::new();
         let mut fallback_title_index = 0;
 
         for page_series in section.page_series() {
@@ -38,38 +42,76 @@ impl Renderer {
                 });
 
                 let file_name = title.trim().replace("/", "_");
-                let file_name = self.determine_page_filename(&file_name)?;
-                let file_name = sanitize_filename::sanitize(file_name + ".html");
+                let file_name = self.determine_page_filename(&file_name, fs)?;
+                let file_name = sanitize_path(&(file_name + ".html"), fs)?;
 
                 let output_file = section_dir.join(file_name);
 
-                let mut renderer = page::Renderer::new(section_dir.clone(), self);
+                let mut renderer = page::Renderer::new(section_dir.clone(), self, options, fs);
                 let output = renderer.render_page(page)?;
 
-                fs::write(&output_file, output)?;
+                fs.write_file(output_file.to_path(), output.as_bytes())?;
 
-                toc.push((
-                    title,
-                    output_file
+                entries.push(templates::section::Entry {
+                    name: title,
+                    path: output_file
                         .strip_prefix(output_dir)?
                         .to_string_lossy()
                         .to_string(),
-                    page.level(),
-                ))
+                    level: page.level(),
+                    is_warnings: false,
+                });
             }
         }
 
-        let toc_html = templates::section::render(section.display_name(), toc)?;
-        let toc_name = sanitize_output_filename(section.display_name())? + ".html";
+        let warnings = section.report().warnings();
+        if options.warnings && !warnings.is_empty() {
+            let stem = self.determine_page_filename("Warnings", fs)?;
+            let filename = sanitize_path(&(stem + ".html"), fs)?;
+            let warnings_path = section_dir.join(&filename);
+
+            let warning_entries: Vec<templates::warnings::Entry> = warnings
+                .iter()
+                .map(|w| templates::warnings::Entry {
+                    page: w
+                        .page()
+                        .map(|(_, title)| title)
+                        .unwrap_or("(section-level)"),
+                    message: w.message(),
+                })
+                .collect();
+
+            let html = templates::warnings::render(section.display_name(), &warning_entries)?;
+            fs.write_file(warnings_path.to_path(), html.as_bytes())?;
+
+            entries.push(templates::section::Entry {
+                name: "\u{26A0} Conversion Warnings".to_string(),
+                path: warnings_path
+                    .strip_prefix(output_dir)?
+                    .to_string_lossy()
+                    .to_string(),
+                level: 0,
+                is_warnings: true,
+            });
+        }
+
+        let toc_html = templates::section::render(section.display_name(), &entries)?;
+        let toc_name = sanitize_output_filename(section.display_name(), fs)? + ".html";
         let toc_file = output_dir.join(toc_name);
-        fs::write(toc_file, toc_html)?;
+
+        fs.write_file(toc_file.to_path(), toc_html.as_bytes())?;
 
         Ok(section_dir)
     }
 
-    pub(crate) fn determine_page_filename(&mut self, filename: &str) -> Result<String> {
+    pub(crate) fn determine_page_filename(
+        &mut self,
+        filename: &str,
+        fs: impl FileSystem,
+    ) -> Result<String> {
+        let sanitized = sanitize_path(filename, fs)?;
+        let mut current_filename = sanitized.clone();
         let mut i = 0;
-        let mut current_filename = sanitize_filename::sanitize(filename);
 
         loop {
             if !self.pages.contains(&current_filename) {
@@ -80,7 +122,7 @@ impl Renderer {
 
             i += 1;
 
-            current_filename = format!("{}_{}", filename, i);
+            current_filename = format!("{}_{}", sanitized, i);
         }
     }
 }

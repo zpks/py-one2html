@@ -2,34 +2,58 @@ use crate::page::Renderer;
 use crate::utils::{AttributeSet, StyleSet, px};
 use color_eyre::Result;
 use log::warn;
+use onenote_parser::FileSystem;
 use onenote_parser::contents::{List, OutlineElement};
 use onenote_parser::property::common::ColorRef;
 
 const FORMAT_NUMBERED_LIST: char = '\u{fffd}';
 
-impl<'a> Renderer<'a> {
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ListKind {
+    Bullet,
+    Tagged,
+}
+
+impl<'a, FS: FileSystem> Renderer<'a, FS> {
     pub(crate) fn render_list<'b>(
         &mut self,
         elements: impl Iterator<Item = (&'b OutlineElement, u8, u8)>,
         indents: &[f32],
     ) -> Result<String> {
         let mut contents = String::new();
-        let mut in_list = false;
-        let mut list_end = None;
+        let mut current: Option<ListKind> = None;
+        let mut list_end: Option<String> = None;
 
         for (element, parent_level, current_level) in elements {
-            if !in_list && self.is_list(element) {
-                let tags = self.list_tags(element);
-                let list_start = tags.0;
-                list_end = Some(tags.1);
+            let wanted = if self.is_list(element) {
+                Some(ListKind::Bullet)
+            } else if self.is_tag_list(element) {
+                Some(ListKind::Tagged)
+            } else {
+                None
+            };
 
-                contents.push_str(&list_start);
-                in_list = true;
+            // Close the open list if the next element doesn't belong to it
+            // (different kind, or no list at all).
+            if current.is_some() && current != wanted {
+                contents.push_str(&list_end.take().expect("no list end tag defined"));
+                current = None;
             }
 
-            if in_list && !self.is_list(element) {
-                contents.push_str(&list_end.take().expect("no list end tag defined"));
-                in_list = false;
+            // Open the appropriate list if needed.
+            if current.is_none()
+                && let Some(kind) = wanted
+            {
+                let (start, end) = match kind {
+                    ListKind::Bullet => self.list_tags(element),
+                    ListKind::Tagged => (
+                        "<ul class=\"tagged-list\">".to_string(),
+                        "</ul>".to_string(),
+                    ),
+                };
+                contents.push_str(&start);
+                list_end = Some(end);
+                current = Some(kind);
             }
 
             contents.push_str(&self.render_outline_element(
@@ -40,7 +64,7 @@ impl<'a> Renderer<'a> {
             )?);
         }
 
-        if in_list {
+        if current.is_some() {
             contents.push_str(&list_end.expect("no list end tag defined"));
         }
 
@@ -177,6 +201,10 @@ impl<'a> Renderer<'a> {
             .first()
             .map(|c| *c == FORMAT_NUMBERED_LIST)
             .unwrap_or_default()
+    }
+
+    pub(crate) fn is_tag_list(&self, element: &OutlineElement) -> bool {
+        self.has_note_tag(element)
     }
 
     pub(crate) fn is_list(&self, element: &OutlineElement) -> bool {

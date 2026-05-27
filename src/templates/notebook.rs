@@ -11,8 +11,8 @@ struct NotebookTemplate<'a> {
 }
 
 pub(crate) enum Toc {
-    Section(Section),
-    SectionGroup(String, Vec<Section>),
+    Section { section: Section, depth: u32 },
+    GroupHeader { name: String, depth: u32 },
 }
 
 #[derive(Debug)]

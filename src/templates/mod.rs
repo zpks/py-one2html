@@ -4,6 +4,7 @@ use std::path;
 pub(crate) mod notebook;
 pub(crate) mod page;
 pub(crate) mod section;
+pub(crate) mod warnings;
 
 const ASCII_SET: AsciiSet = percent_encoding::NON_ALPHANUMERIC.remove(path::MAIN_SEPARATOR as u8);
 
