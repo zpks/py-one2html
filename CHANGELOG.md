@@ -5,6 +5,60 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Split the crate into a reusable library and an optional CLI binary (gated
+  behind the `bin` feature), and add a `wasm32-unknown-unknown` build of the
+  library.
+- Support `.onepkg` packages in addition to `.one` sections and `.onetoc2`
+  notebooks (gated behind the `onepkg` feature).
+- LaTeX math rendering alongside MathML, selectable with `--math-target
+  {mathml,latex}`; the matching MathJax build is loaded automatically.
+- Optional per-section "⚠ Conversion Warnings" page via `--warnings`, listing
+  non-fatal parser issues.
+- Render math-only paragraphs as display-mode equations.
+- Render arbitrarily nested section groups in the notebook table of contents.
+- Optional emoji rendering for note-tag icons.
+- Emit `<strong>`/`<em>` for bold and italic text runs.
+- Emit `X-Original-Page-Id`, `X-Created-Time`, and `X-Updated-Time` meta tags
+  per page.
+- Support nested ink containers and improve handwriting import via batched ink
+  rendering.
+
+### Changed
+
+- Update `onenote_parser` to 2.0.0 (see its
+  [changelog](https://github.com/msiemens/onenote.rs/blob/master/CHANGELOG.md)).
+- Stream image and embedded-file payloads to disk instead of buffering them in
+  memory.
+- Sanitize output filenames for the target filesystem, so conversions are
+  reproducible regardless of the host platform.
+- Don't force the `native-fs` feature on library consumers.
+- Fall back to sans-serif for Calibri and Calibri Light when those fonts are
+  unavailable.
+
+### Fixed
+
+- Warn and skip nested section groups instead of aborting the conversion.
+- Render tagged-list items as `<li>` and prevent list-tag styling from bleeding
+  into following items.
+- Stop dropping content when text runs have no formatting or when text-run
+  boundaries exceed the available styles.
+- Stop folding a single text run's style into the paragraph wrapper.
+- Handle hyperlink URL markers split across multiple hidden runs.
+- Position inline ink against the bounding-box size rather than the content
+  size.
+- Import PDF printouts as PNG when the embedded bytes are actually PNG.
+- Use correct bound placement in MathML integrals.
+
+### Security
+
+- HTML-escape user-controllable strings — page titles, text runs, hyperlink
+  URLs, and `style`/`href`/`src` attribute values — to prevent HTML/script
+  injection from untrusted OneNote files.
+
 ## [1.3.1] - 2026-05-15
 
 ### Fixed
