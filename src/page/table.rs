@@ -28,7 +28,10 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
         let locked_cols = calc_locked_cols(table.cols_locked(), table.cols());
 
         let mut col_widths = table.col_widths().to_vec();
-        col_widths.extend(vec![0.0; table.cols() as usize - col_widths.len()]);
+        col_widths.extend(vec![
+            0.0;
+            (table.cols() as usize).saturating_sub(col_widths.len())
+        ]);
         let col_widths = &*col_widths;
 
         for row in table.contents() {
@@ -113,6 +116,9 @@ fn calc_locked_cols(data: &[u8], count: u32) -> Vec<bool> {
     }
 
     (0..count)
-        .map(|i| data[i as usize / 8] & (1 << (i % 8)) == 1)
+        .map(|i| {
+            data.get(i as usize / 8)
+                .is_some_and(|&byte| byte & (1 << (i % 8)) == 1)
+        })
         .collect()
 }

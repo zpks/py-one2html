@@ -67,9 +67,11 @@ pub fn convert(
         Some("onetoc2") => {
             let name = path
                 .parent()
-                .unwrap()
-                .file_name()
-                .map(|b| String::from_utf8_lossy(b).into_owned())
+                .and_then(|parent| {
+                    parent
+                        .file_name()
+                        .map(|b| String::from_utf8_lossy(b).into_owned())
+                })
                 .unwrap_or_default();
             log::info!("Processing notebook {}...", name);
 

@@ -155,7 +155,10 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
                 }
 
                 let count = group_parts.len();
-                let objects = inline_objects[math_object_offset..math_object_offset + count]
+                let end = (math_object_offset + count).min(inline_objects.len());
+                let objects = inline_objects
+                    .get(math_object_offset..end)
+                    .unwrap_or(&[])
                     .iter()
                     .copied();
                 let segments = group_parts
@@ -279,8 +282,8 @@ impl<'a, FS: FileSystem> Renderer<'a, FS> {
         let mut text = text.encode_utf16().collect::<Vec<u16>>();
 
         for i in indices.iter().copied().rev() {
-            let part = text[i as usize..].to_vec();
-            text = text[0..i as usize].to_vec();
+            let i = (i as usize).min(text.len());
+            let part = text.split_off(i);
 
             parts.push(part);
         }

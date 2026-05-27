@@ -73,14 +73,8 @@ pub(crate) fn html_entities(text: &str) -> String {
 
 pub(crate) fn detect_png(header: &[u8]) -> bool {
     // PNGs start with a specific set of bytes. See https://en.wikipedia.org/wiki/PNG
-    header.len() > 6
-        && header[0] == 0x89
-        && header[1] == 0x50 // 'P'
-        && header[2] == 0x4E // 'N'
-        && header[3] == 0x47 // 'G'
-        && header[4] == 0x0D // \r
-        && header[5] == 0x0A // \n
-        && header[6] == 0x1A
+    //                  0x89  'P'   'N'   'G'   \r    \n
+    header.starts_with(&[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A])
 }
 
 pub(crate) struct AttributeSet(HashMap<&'static str, String>);
