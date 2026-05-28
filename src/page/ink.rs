@@ -1,8 +1,9 @@
 use core::f32;
 
-use crate::utils::{AttributeSet, StyleSet};
+use crate::utils::{AttributeSet, StyleSet, html_entities};
 use itertools::Itertools;
 use onenote_parser::contents::{Ink, InkBoundingBox, InkPoint, InkStroke};
+use std::collections::HashSet;
 
 type Vec2 = (f32, f32);
 
@@ -19,6 +20,9 @@ struct InkPart {
 
 pub(crate) struct InkBuilder {
     parts: Vec<InkPart>,
+    /// (recognized_word_id, best-candidate text) for every OCR'd stroke pushed
+    /// into the builder. Deduped by id in `build()`.
+    recognized_words: Vec<(u32, String)>,
     embedded: bool,
 }
 
@@ -28,12 +32,14 @@ impl InkBuilder {
     pub(crate) fn new(embedded: bool) -> Self {
         Self {
             parts: vec![],
+            recognized_words: vec![],
             embedded,
         }
     }
 
     fn reset(&mut self) {
         self.parts.clear();
+        self.recognized_words.clear();
     }
 
     pub(crate) fn push(&mut self, ink: &Ink, display_bounding_box: Option<&InkBoundingBox>) {
@@ -97,6 +103,12 @@ impl InkBuilder {
         );
         let scale = 1. / Self::SVG_SCALING_FACTOR;
         let path = self.render_ink_path(strokes, scale, translate);
+        self.recognized_words
+            .extend(strokes.iter().filter_map(|stroke| {
+                let word = stroke.recognized_word()?;
+                let text = word.text()?;
+                Some((word.id(), text.to_string()))
+            }));
         self.parts.push(InkPart {
             content: path,
             content_size_px: (width_px, height_px),
@@ -169,6 +181,22 @@ impl InkBuilder {
 
         attrs.set("style", styles.to_string());
 
+        // Each stroke contributes its full recognized word, so the same word
+        // shows up once per stroke; dedupe by stable id, keeping first-seen
+        // order.
+        let mut seen: HashSet<u32> = HashSet::new();
+        let words = self
+            .recognized_words
+            .iter()
+            .filter(|(id, _)| seen.insert(*id))
+            .map(|(_, text)| text.as_str())
+            .join(" ");
+        let title = if words.is_empty() {
+            String::new()
+        } else {
+            format!("<title>{}</title>", html_entities(&words))
+        };
+
         if self.embedded {
             let mut span_styles = StyleSet::new();
             // Use display_size instead of content_size to size the container. This ensures
@@ -177,13 +205,14 @@ impl InkBuilder {
             span_styles.set("height", format!("{}px", display_size.1));
 
             format!(
-                "<span {} class=\"ink-text\"><svg {}>{}</svg></span>",
+                "<span {} class=\"ink-text\"><svg {}>{}{}</svg></span>",
                 span_styles.to_html_attr(),
                 attrs,
+                title,
                 path
             )
         } else {
-            format!("<svg {}>{}</svg>", attrs, path)
+            format!("<svg {}>{}{}</svg>", attrs, title, path)
         }
     }
 

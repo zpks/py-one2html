@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   per page.
 - Support nested ink containers and improve handwriting import via batched ink
   rendering.
+- Emit OneNote's handwriting OCR as an SVG `<title>` on each rendered ink
+  block, making the recognized text available to screen readers
+  ([#9](https://github.com/msiemens/one2html/issues/9)).
 
 ### Changed
 

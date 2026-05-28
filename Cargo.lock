@@ -653,7 +653,7 @@ dependencies = [
 [[package]]
 name = "onenote_parser"
 version = "1.1.1"
-source = "git+https://github.com/msiemens/onenote.rs?branch=master#e91e49c4df35ace0f1020e277f3f0c568cee273b"
+source = "git+https://github.com/msiemens/onenote.rs?branch=master#5138a39a3f4e72b840932f9872fecde52fa9da60"
 dependencies = [
  "bytes",
  "cab",
@@ -675,7 +675,7 @@ dependencies = [
 [[package]]
 name = "onenote_parser-macros"
 version = "1.1.1"
-source = "git+https://github.com/msiemens/onenote.rs?branch=master#e91e49c4df35ace0f1020e277f3f0c568cee273b"
+source = "git+https://github.com/msiemens/onenote.rs?branch=master#5138a39a3f4e72b840932f9872fecde52fa9da60"
 dependencies = [
  "proc-macro2",
  "quote",
