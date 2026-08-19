@@ -1,6 +1,6 @@
-# one2html
+# py-one2html
 
-one2html lets you convert OneNote® files (sections or whole notebooks)
+py-one2html is a python wrapper around one2html, which lets you convert OneNote® files (sections or whole notebooks)
 into HTML.
 
 ## Installation
