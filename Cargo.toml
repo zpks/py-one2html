@@ -13,8 +13,15 @@ categories = ["command-line-utilities", "encoding"]
 name = "one2html"
 required-features = ["bin"]
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [features]
 default = ["backtrace", "native-fs", "bin", "onepkg"]
+# Python extension module. Excludes `backtrace` on purpose: that feature
+# enables a nightly-only rustc feature in onenote_parser, and wheels are
+# built on stable.
+python = ["dep:pyo3", "native-fs", "onepkg"]
 
 bin = [
     "native-fs",
@@ -49,6 +56,7 @@ phf = { version = "0.13", features = ["macros"] }
 num-traits = "0.2"
 finl_unicode = "1.4"
 simplelog = { version = "0.12", optional = true }
+pyo3 = { version = "0.27", features = ["extension-module"], optional = true }
 typed-path = "0.12.3"
 
 [profile.dev.package.backtrace]
