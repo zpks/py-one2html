@@ -1,77 +1,23 @@
 # py-one2html
 
 py-one2html is a python wrapper around one2html, which lets you convert OneNote® files (sections or whole notebooks)
-into HTML.
+into HTML. Extra added over base repo are buffer processing and returning a Python-readable object.
 
-## Installation
+Needed this for work, may become something more later.
 
-Choose one of the following installation options:
-
-1. Download from [GitHub Releases][latest-releases].
-
-2. Install via [`cargo binstall`][cargo-binstall]:
-
-```sh
-cargo binstall one2html
+Current install: add to repo as submodule, run
 ```
-
-3. Build from source:
-
-```sh
-cargo install --locked --no-default-features one2html
+uv run maturin develop
 ```
+and add py-one2html to your pyproject.toml with a separate
 
-All options require the latest stable [Rust][rust] compiler.
-
-If you are using [a nightly compiler][rust-nightly], you can omit the
-`--no-default-features` flag to print stack traces when errors occur during
-OneNote file parsing.
-
-## Usage
-
-### Download OneNote files from OneDrive
-
-OneNote files can be retrieved using one of two methods: Either by
-using [onedrive-cli] or by downloading a notebook via the OneDrive web UI.
-To do this first install `onedrive-cli` following its instructions. After
-logging in using `onedrive-cli login`, you can download a section (a single
-`.one` file), or a notebook (a folder that contains a `.onetoc2` file along
-with other `.one` files):
-
-```sh
-# Download a notebook
-onedrive-cli ls Documents/
-onedrive-cli cp -R :/Documents/Notebook .
-
-# Download a section
-onedrive-cli cp -R :/Documents/Notebook/Section.one .
 ```
-
-Alternatively, to download OneNote notebooks via the OneDrive web UI, follow
-these steps:
-
-1. Visit https://onedrive.live.com
-2. Select the folder that contains your notebooks. Typically this is
-   the _Documents_ folder.
-3. Use the _Download_ button from the toolbar to download a ZIP file
-   that contains all of your OneNote notebooks.
-
-### Convert OneNote files to HTML
-
-OneNote sections are stored in `.one` files. To convert a section
-to HTML run:
-
-```sh
-one2html -i Section.one -o ./output_dir/
+[tool.uv.sources]
+py-one2html = { path = "one2html"}
 ```
+to add the source locally.
 
-OneNote notebooks are stored as folders that contain a `.onetoc2`
-file along with the notebook's sections stored as `.one` files.
-To convert a notebook to HTML run:
-
-```sh
-one2html -i 'Notebook/Open Notebook.onetoc2' -o ./output_dir/
-```
+Unless you know what you are doing, I would refer all readers to https://github.com/msiemens/one2html
 
 ## Limitations
 
@@ -84,13 +30,3 @@ one2html -i 'Notebook/Open Notebook.onetoc2' -o ./output_dir/
 
 This project is neither related to nor endorsed by Microsoft in any way. The
 author does not have any affiliation with Microsoft.
-
-[rust-nightly]: https://doc.rust-lang.org/book/appendix-07-nightly-rust.html#rustup-and-the-role-of-rust-nightly
-
-[onedrive-cli]: https://github.com/lionello/onedrive-cli
-
-[latest-releases]: https://github.com/msiemens/one2html/releases/latest
-
-[rust]: https://www.rust-lang.org
-
-[cargo-binstall]: https://github.com/cargo-bins/cargo-binstall
