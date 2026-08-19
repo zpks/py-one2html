@@ -4,10 +4,11 @@ use onenote_parser::FileSystem;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
-#[cfg(feature = "native-fs")]
+#[cfg(feature = "bin")]
 use std::time::Duration;
 
-#[cfg(feature = "native-fs")]
+// Terminal spinner only for the CLI; `indicatif` is a `bin`-feature dependency.
+#[cfg(feature = "bin")]
 pub(crate) fn with_progress<T, F: FnMut() -> T>(msg: &'static str, mut f: F) -> T {
     let bar = indicatif::ProgressBar::new_spinner();
     bar.set_message(msg);
@@ -22,7 +23,7 @@ pub(crate) fn with_progress<T, F: FnMut() -> T>(msg: &'static str, mut f: F) -> 
     ret
 }
 
-#[cfg(not(feature = "native-fs"))]
+#[cfg(not(feature = "bin"))]
 pub(crate) fn with_progress<T, F: FnMut() -> T>(msg: &'static str, mut f: F) -> T {
     log::info!("{}", msg);
 

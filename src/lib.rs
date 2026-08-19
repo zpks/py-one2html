@@ -8,6 +8,7 @@ use typed_path::TypedPath;
 mod notebook;
 mod page;
 mod section;
+pub mod structured;
 mod templates;
 mod utils;
 
@@ -112,3 +113,6 @@ pub fn convert(
 
     Ok(())
 }
+
+#[cfg(feature = "python")]
+mod python;
